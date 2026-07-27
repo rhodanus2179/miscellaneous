@@ -1,0 +1,43 @@
+.ambient-exit {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  min-width: 132px;
+  min-height: 38px;
+  padding: 10px 16px;
+  transform: translate(-50%, 10px);
+  border: 1px solid rgba(184, 222, 242, 0.34);
+  border-radius: 999px;
+  background: rgba(3, 12, 21, 0.72);
+  color: rgba(225, 243, 249, 0.82);
+  font: 600 9px/1 var(--mono);
+  letter-spacing: 0.14em;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: manipulation;
+  backdrop-filter: blur(10px);
+  transition: opacity 240ms ease, transform 240ms ease, background 160ms ease;
+}
+
+body.ambient .ambient-exit {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.ambient-exit:active,
+.ambient-exit:focus-visible {
+  outline: none;
+  background: rgba(16, 45, 61, 0.9);
+  border-color: rgba(197, 247, 255, 0.72);
+}
+
+@media (max-width: 700px) {
+  .ambient-exit {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    min-width: 148px;
+    min-height: 44px;
+    font-size: 10px;
+  }
+}
