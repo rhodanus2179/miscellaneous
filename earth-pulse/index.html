@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#02060c">
+  <meta name="description" content="地球上と地球周辺で今起きている現象を、一つの鼓動として観察するリアルタイム・プラネタリウム。">
+  <title>Earth Pulse</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <div id="app-shell">
+    <div id="globe" aria-label="地球と現在進行中の現象を表示する3D地球儀"></div>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <header class="topbar ui-chrome">
+      <div class="brand-block">
+        <p class="eyebrow">PLANETARY OBSERVATORY</p>
+        <h1>EARTH <span>PULSE</span></h1>
+      </div>
+      <div class="topbar-status" aria-live="polite">
+        <time id="utc-clock">— UTC</time>
+        <button id="source-button" class="status-button" type="button" aria-expanded="false" aria-controls="source-panel">
+          <span id="data-summary" data-state="offline">DATA 0/4 ONLINE</span>
+        </button>
+      </div>
+      <nav class="top-controls" aria-label="表示操作">
+        <button id="rotate-button" class="control-button" type="button" aria-pressed="true">
+          <span>AUTO ROTATE</span><span class="control-value">ON</span>
+        </button>
+        <button id="ambient-button" class="control-button" type="button" aria-pressed="false">AMBIENT</button>
+        <button id="refresh-button" class="control-button" type="button">REFRESH</button>
+        <button id="about-button" class="control-button" type="button">ABOUT</button>
+      </nav>
+    </header>
+
+    <nav class="layer-nav ui-chrome" aria-label="地球活動レイヤー">
+      <button class="layer-button" type="button" data-layer="CORE" data-mode="on" aria-pressed="true">
+        <span class="layer-index">01</span><span class="layer-name">CORE</span><span class="layer-mode">ON</span>
+      </button>
+      <button class="layer-button" type="button" data-layer="CRUST" data-mode="on" aria-pressed="true">
+        <span class="layer-index">02</span><span class="layer-name">CRUST</span><span class="layer-mode">ON</span>
+      </button>
+      <button class="layer-button" type="button" data-layer="AIR" data-mode="on" aria-pressed="true">
+        <span class="layer-index">03</span><span class="layer-name">AIR</span><span class="layer-mode">ON</span>
+      </button>
+      <button class="layer-button" type="button" data-layer="SURFACE" data-mode="on" aria-pressed="true">
+        <span class="layer-index">04</span><span class="layer-name">SURFACE</span><span class="layer-mode">ON</span>
+      </button>
+      <button class="layer-button" type="button" data-layer="SPACE" data-mode="on" aria-pressed="true">
+        <span class="layer-index">05</span><span class="layer-name">SPACE</span><span class="layer-mode">ON</span>
+      </button>
+      <button class="layer-button" type="button" data-layer="ORBIT" data-mode="on" aria-pressed="true">
+        <span class="layer-index">06</span><span class="layer-name">ORBIT</span><span class="layer-mode">ON</span>
+      </button>
+      <p class="layer-help">CLICK: ON → FOCUS → OFF</p>
+    </nav>
+
+    <section class="planet-card ui-chrome" aria-labelledby="planetary-heading">
+      <p id="planetary-heading" class="panel-label">PLANETARY STATE</p>
+      <div class="state-heading">
+        <strong id="planetary-state-label" data-state="calculating">CALCULATING</strong>
+        <span id="planetary-state-score">— / 100</span>
+      </div>
+      <div id="state-components" class="state-components" aria-label="活動系別スコア"></div>
+      <div class="planet-meta">
+        <span id="moon-phase">—</span>
+        <span id="event-counts">0 QUAKES · 0 EVENTS · ISS OFFLINE</span>
+      </div>
+      <p class="disclaimer">VISUAL SYNTHESIS — NOT AN OFFICIAL HAZARD RATING</p>
+    </section>
+
+    <section class="space-card ui-chrome" aria-labelledby="space-heading">
+      <p id="space-heading" class="panel-label">MAGNETOSPHERE</p>
+      <div id="space-weather" class="space-grid">
+        <div><span>SOLAR WIND</span><strong>—</strong></div>
+        <div><span>Kp INDEX</span><strong>—</strong></div>
+        <div><span>Bz GSM</span><strong>—</strong></div>
+        <div><span>FIELD</span><strong>—</strong></div>
+      </div>
+    </section>
+
+    <aside id="detail-card" class="detail-card ui-chrome" aria-live="polite" aria-labelledby="detail-title" hidden>
+      <button id="detail-close" class="icon-button" type="button" aria-label="詳細を閉じる">×</button>
+      <p id="detail-type" class="panel-label">EVENT</p>
+      <h2 id="detail-title">—</h2>
+      <p id="detail-when" class="detail-when">—</p>
+      <div id="detail-metrics" class="detail-metrics"></div>
+      <div class="detail-footer">
+        <span id="detail-source">Source: —</span>
+        <a id="detail-link" href="#" target="_blank" rel="noopener noreferrer">OFFICIAL DATA ↗</a>
+      </div>
+    </aside>
+
+    <aside id="source-panel" class="source-panel ui-chrome" aria-label="データソースの状態" hidden>
+      <p class="panel-label">DATA SOURCES</p>
+      <ul id="source-list"></ul>
+      <p class="source-note">更新頻度はデータ提供元ごとに異なります。キャッシュ利用時は LAST KNOWN と表示します。</p>
+    </aside>
+
+    <div id="error-banner" class="error-banner" role="alert" hidden></div>
+    <div class="ambient-hint" aria-hidden="true">PRESS A OR ESC TO RETURN</div>
+
+    <footer class="footer-note ui-chrome">
+      <span>USGS · NASA EONET · NOAA SWPC · CELESTRAK</span>
+      <span>EARTH PULSE v0.1</span>
+    </footer>
+  </div>
+
+  <dialog id="about-dialog" class="about-dialog">
+    <button id="about-close" class="icon-button" type="button" aria-label="Aboutを閉じる">×</button>
+    <p class="panel-label">ABOUT EARTH PULSE</p>
+    <h2>A planet, observed as one living system.</h2>
+    <p>Earth Pulseは、地震、自然イベント、宇宙天気、ISS、昼夜の移動を、一つの「惑星の鼓動」として眺める静的Webアプリです。</p>
+    <p><strong>Planetary State</strong> は複数データを正規化した視覚演出上の指標であり、防災・安全判断に使える公式情報ではありません。必要な判断には各提供元の公式情報を確認してください。</p>
+    <dl>
+      <div><dt>EARTHQUAKES</dt><dd>USGS Earthquake Hazards Program</dd></div>
+      <div><dt>NATURAL EVENTS</dt><dd>NASA EONET</dd></div>
+      <div><dt>SPACE WEATHER</dt><dd>NOAA Space Weather Prediction Center</dd></div>
+      <div><dt>ORBITAL ELEMENTS</dt><dd>CelesTrak / satellite.js</dd></div>
+      <div><dt>3D ENGINE</dt><dd>Globe.gl / Three.js</dd></div>
+    </dl>
+    <p class="about-small">外部APIの一部が利用できない場合も、取得済みデータとブラウザ内計算で表示を継続します。</p>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.1"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
