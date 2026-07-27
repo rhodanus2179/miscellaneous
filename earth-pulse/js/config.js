@@ -1,6 +1,6 @@
 export const CONFIG = Object.freeze({
   appName: 'Earth Pulse',
-  version: '0.1.0',
+  version: '0.1.1',
   earthRadiusKm: 6371,
   requestTimeoutMs: 10_000,
   requestRetries: 1,
