@@ -2,17 +2,18 @@
 
 地球上と地球周辺で現在進行している現象を、一つの「惑星の鼓動」として観察する静的Webアプリです。
 
-## v0.1の機能
+## v0.1.1の機能
 
 - Globe.glによる3D地球儀
 - 現在時刻に連動する昼夜境界
+- Natural Earthを基にした大陸・主要島嶼の外形
 - USGSの過去24時間の地震と波紋表示
 - NASA EONETの活動中自然イベント
 - NOAA SWPCの太陽風・磁場・Kp指数
 - CelesTrakのOMMデータとsatellite.jsによるISS位置・軌道計算
 - API障害時のローカルキャッシュ利用
 - レイヤーのON / FOCUS / OFF切替
-- Ambientモード
+- Ambientモードとスマートフォン用復帰ボタン
 - 独自のPlanetary State
 - PC・タブレット・スマートフォン対応
 
@@ -36,6 +37,7 @@ python -m http.server 8000
 - レイヤーボタン: `ON → FOCUS → OFF`
 - `A`: Ambientモード切替
 - `Esc`: 詳細・About・Ambientモードを閉じる
+- スマートフォンのAmbientモード: 画面下部の `TAP TO RETURN` で復帰
 
 ## データ提供元
 
@@ -44,6 +46,7 @@ python -m http.server 8000
 - [NOAA Space Weather Prediction Center](https://www.swpc.noaa.gov/)
 - [CelesTrak](https://celestrak.org/)
 - ISS位置フォールバック: [Where The ISS At?](https://wheretheiss.at/)
+- 地図形状: [Natural Earth](https://www.naturalearthdata.com/)（public domain）
 
 ## 使用ライブラリ
 
