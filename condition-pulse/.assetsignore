@@ -1,0 +1,9 @@
+DESIGN.md
+package.json
+package-lock.json
+wrangler.jsonc
+node_modules/
+tests/
+*.md
+.dev.vars*
+.wrangler/
