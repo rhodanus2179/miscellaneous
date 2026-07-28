@@ -96,7 +96,16 @@ export async function importDataAtomic({ sessions, settings, mode = 'merge' }) {
       settingsStore.clear();
     }
 
-    for (const session of sessions ?? []) sessionStore.put(session);
+    for (const session of sessions ?? []) {
+      if (mode === 'replace') {
+        sessionStore.put(session);
+        continue;
+      }
+      const lookup = sessionStore.getKey(session.id);
+      lookup.onsuccess = () => {
+        if (lookup.result === undefined) sessionStore.add(session);
+      };
+    }
     if (settings) settingsStore.put({ id: 'user', value: settings });
 
     await new Promise((resolve, reject) => {
