@@ -13,6 +13,11 @@
 - Service Workerによるオフライン基本対応
 - 外部ライブラリ、外部フォント、アクセス解析なし
 
+## 設計書
+
+- [v0.1 MVP設計書](./DESIGN.md)
+- [v0.2 改修設計書](./DESIGN_v0.2.md)
+
 ## 起動
 
 ES ModulesとService Workerを使用するため、ローカルではHTTPサーバー経由で開きます。
