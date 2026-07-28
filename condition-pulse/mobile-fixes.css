@@ -1,0 +1,43 @@
+.settings-group .panel,
+.settings-group .field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-group .panel,
+.settings-group .field {
+  overflow: hidden;
+}
+
+.settings-group .field {
+  contain: inline-size;
+}
+
+.field input[type="time"] {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  width: -webkit-fill-available;
+  min-width: 0;
+  max-width: -webkit-fill-available;
+  inline-size: -webkit-fill-available;
+  min-inline-size: 0;
+  max-inline-size: -webkit-fill-available;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: center;
+}
+
+.field input[type="time"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: center;
+}
+
+@supports not (width: -webkit-fill-available) {
+  .field input[type="time"] {
+    width: 100%;
+    max-width: 100%;
+    inline-size: 100%;
+    max-inline-size: 100%;
+  }
+}
