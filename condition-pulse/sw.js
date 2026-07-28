@@ -1,6 +1,6 @@
-const CACHE_NAME = 'condition-pulse-v0.1.0';
+const CACHE_NAME = 'condition-pulse-v0.1.1';
 const APP_SHELL = [
-  './', './index.html', './styles.css', './manifest.webmanifest', './icon.svg', './icon-maskable.svg',
+  './', './index.html', './styles.css', './mobile-fixes.css', './manifest.webmanifest', './icon.svg', './icon-maskable.svg',
   './data/questions.ja.json',
   './js/app.js', './js/checkin.js', './js/config.js', './js/export.js', './js/feedback.js',
   './js/question-selector.js', './js/router.js', './js/scoring.js', './js/storage.js', './js/time-bands.js'
