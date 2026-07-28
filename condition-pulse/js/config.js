@@ -1,4 +1,5 @@
-export const APP_VERSION = '0.1.2';
+export const APP_VERSION = '0.2.0';
+export const BACKUP_SCHEMA_VERSION = 2;
 export const QUESTION_BANK_VERSION = '2026-07-28';
 
 export const DOMAIN_LABELS = Object.freeze({
@@ -36,7 +37,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   remindersEnabled: false,
   reducedMotion: false,
   privacyMode: false,
-  onboardingCompleted: false
+  onboardingCompleted: false,
+  questionPreferences: {}
 });
 
 export const CONTEXT_TAGS = ['仕事', '休日', '外出', '運動', '睡眠不足', '飲酒', '体調イベント', 'その他'];
