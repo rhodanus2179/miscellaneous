@@ -1,0 +1,15 @@
+{
+  "name": "Condition Pulse",
+  "short_name": "Pulse",
+  "description": "朝・昼・夜に3問だけ。自分のコンディションの揺らぎを記録します。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2efe7",
+  "theme_color": "#17251f",
+  "lang": "ja-JP",
+  "icons": [
+    {"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "./icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}

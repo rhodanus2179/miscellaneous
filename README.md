@@ -10,3 +10,10 @@ Small experiments, visual tools and strange little applications.
 
 - App: [`earth-pulse/`](./earth-pulse/)
 - Design: [`earth-pulse/DESIGN.md`](./earth-pulse/DESIGN.md)
+
+### Condition Pulse
+
+朝・昼・夜に3問ずつ答え、本人の平常値との差と一日のコンディションの揺らぎを観測する、端末内完結型のセルフモニタリングアプリ。
+
+- App: [`condition-pulse/`](./condition-pulse/)
+- Design: [`condition-pulse/DESIGN.md`](./condition-pulse/DESIGN.md)
