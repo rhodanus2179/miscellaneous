@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS } from './config.js';
+import { normalizeQuestionPreferences } from './preferences.js';
 
 const DB_NAME = 'condition-pulse';
 const DB_VERSION = 1;
@@ -45,6 +46,19 @@ async function withStore(storeName, mode, action) {
   }
 }
 
+function mergeSettings(record) {
+  const source = record?.value ?? {};
+  return {
+    ...structuredClone(DEFAULT_SETTINGS),
+    ...source,
+    timeBands: {
+      ...structuredClone(DEFAULT_SETTINGS.timeBands),
+      ...(source.timeBands ?? {})
+    },
+    questionPreferences: normalizeQuestionPreferences(source.questionPreferences)
+  };
+}
+
 export async function getSessions() {
   const sessions = await withStore(SESSION_STORE, 'readonly', store => requestToPromise(store.getAll()));
   return sessions.sort((a, b) => new Date(a.completedAt ?? a.startedAt) - new Date(b.completedAt ?? b.startedAt));
@@ -55,16 +69,13 @@ export async function saveSession(session) {
   return session;
 }
 
+export async function deleteSession(sessionId) {
+  await withStore(SESSION_STORE, 'readwrite', store => requestToPromise(store.delete(sessionId)));
+}
+
 export async function getSettings() {
   const record = await withStore(SETTINGS_STORE, 'readonly', store => requestToPromise(store.get('user')));
-  return {
-    ...structuredClone(DEFAULT_SETTINGS),
-    ...(record?.value ?? {}),
-    timeBands: {
-      ...structuredClone(DEFAULT_SETTINGS.timeBands),
-      ...(record?.value?.timeBands ?? {})
-    }
-  };
+  return mergeSettings(record);
 }
 
 export async function saveSettings(settings) {
@@ -72,7 +83,54 @@ export async function saveSettings(settings) {
   return settings;
 }
 
+export async function importDataAtomic({ sessions, settings, mode = 'merge' }) {
+  if (!['merge', 'replace'].includes(mode)) throw new RangeError('Unsupported import mode');
+  const db = await openDatabase();
+  try {
+    const transaction = db.transaction([SESSION_STORE, SETTINGS_STORE], 'readwrite');
+    const sessionStore = transaction.objectStore(SESSION_STORE);
+    const settingsStore = transaction.objectStore(SETTINGS_STORE);
+
+    if (mode === 'replace') {
+      sessionStore.clear();
+      settingsStore.clear();
+    }
+
+    for (const session of sessions ?? []) {
+      if (mode === 'replace') {
+        sessionStore.put(session);
+        continue;
+      }
+      const lookup = sessionStore.getKey(session.id);
+      lookup.onsuccess = () => {
+        if (lookup.result === undefined) sessionStore.add(session);
+      };
+    }
+    if (settings) settingsStore.put({ id: 'user', value: settings });
+
+    await new Promise((resolve, reject) => {
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('Import transaction aborted'));
+    });
+  } finally {
+    db.close();
+  }
+}
+
 export async function clearAllData({ includeSettings = true } = {}) {
-  await withStore(SESSION_STORE, 'readwrite', store => requestToPromise(store.clear()));
-  if (includeSettings) await withStore(SETTINGS_STORE, 'readwrite', store => requestToPromise(store.clear()));
+  const db = await openDatabase();
+  try {
+    const stores = includeSettings ? [SESSION_STORE, SETTINGS_STORE] : [SESSION_STORE];
+    const transaction = db.transaction(stores, 'readwrite');
+    transaction.objectStore(SESSION_STORE).clear();
+    if (includeSettings) transaction.objectStore(SETTINGS_STORE).clear();
+    await new Promise((resolve, reject) => {
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('Clear transaction aborted'));
+    });
+  } finally {
+    db.close();
+  }
 }

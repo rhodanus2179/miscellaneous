@@ -1,3 +1,5 @@
+import { getQuestionPreference, preferencePenalty, QUESTION_PREFERENCE } from './preferences.js';
+
 function parseDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -53,14 +55,32 @@ export function validateQuestions(questions) {
   });
 }
 
-export function selectQuestions({ questions, timeBand, sessions = [], now = new Date(), localDate = now.toISOString().slice(0, 10), count = 3 }) {
+function usableQuestions(valid, preferences) {
+  const visible = valid.filter(question => getQuestionPreference(preferences, question.id) !== QUESTION_PREFERENCE.HIDDEN);
+  const visibleAnchors = visible.filter(question => question.domain === 'overall');
+  const allAnchors = valid.filter(question => question.domain === 'overall');
+  const details = visible.filter(question => question.domain !== 'overall');
+  return {
+    anchors: visibleAnchors.length ? visibleAnchors : allAnchors,
+    details,
+    visible
+  };
+}
+
+export function selectQuestions({
+  questions,
+  timeBand,
+  sessions = [],
+  now = new Date(),
+  localDate = now.toISOString().slice(0, 10),
+  count = 3,
+  preferences = {}
+}) {
   const valid = validateQuestions(questions);
   const questionMap = new Map(valid.map(question => [question.id, question]));
-  const anchors = valid.filter(question => question.domain === 'overall');
-  const details = valid.filter(question => question.domain !== 'overall');
-  const today = localDate;
+  const { anchors, details, visible } = usableQuestions(valid, preferences);
   const sameDayDomains = new Set();
-  sessions.filter(session => session.localDate === today).forEach(session => {
+  sessions.filter(session => session.localDate === localDate).forEach(session => {
     (session.responses ?? []).forEach(response => {
       const domain = questionMap.get(response.questionId)?.domain;
       if (domain && domain !== 'overall') sameDayDomains.add(domain);
@@ -77,7 +97,8 @@ export function selectQuestions({ questions, timeBand, sessions = [], now = new 
     const followUpNeed = recentDomainNeed(question.domain, sessions, questionMap) * 2;
     const sameDayPenalty = sameDayDomains.has(question.domain) ? 2 : 0;
     const wordingBalance = question.direction === 'higher_is_better' ? 0.15 : 0;
-    return timeBandFit + coverageNeed * 2 + followUpNeed - repeatPenalty * 4 - sameDayPenalty + wordingBalance;
+    const preference = getQuestionPreference(preferences, question.id);
+    return timeBandFit + coverageNeed * 2 + followUpNeed - repeatPenalty * 4 - sameDayPenalty + wordingBalance - preferencePenalty(preference);
   };
 
   const sortCandidates = candidates => [...candidates].sort((a, b) => {
@@ -95,6 +116,13 @@ export function selectQuestions({ questions, timeBand, sessions = [], now = new 
     if (usedDomains.has(question.domain)) continue;
     selected.push(question);
     usedDomains.add(question.domain);
+  }
+
+  if (selected.length < count) {
+    for (const question of sortCandidates(visible.length ? visible : valid)) {
+      if (selected.length >= count) break;
+      if (!selected.some(item => item.id === question.id)) selected.push(question);
+    }
   }
 
   if (selected.length < count) {

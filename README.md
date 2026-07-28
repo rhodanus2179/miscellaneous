@@ -16,4 +16,5 @@ Small experiments, visual tools and strange little applications.
 朝・昼・夜に3問ずつ答え、本人の平常値との差と一日のコンディションの揺らぎを観測する、端末内完結型のセルフモニタリングアプリ。
 
 - App: [`condition-pulse/`](./condition-pulse/)
-- Design: [`condition-pulse/DESIGN.md`](./condition-pulse/DESIGN.md)
+- v0.1 Design: [`condition-pulse/DESIGN.md`](./condition-pulse/DESIGN.md)
+- v0.2 Design: [`condition-pulse/DESIGN_v0.2.md`](./condition-pulse/DESIGN_v0.2.md)

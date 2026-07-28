@@ -2,19 +2,21 @@ import { APP_VERSION, QUESTION_BANK_VERSION, RESPONSE_SCALES } from './config.js
 import { normalizeResponse } from './scoring.js';
 import { getObservationDate, getTimeBand } from './time-bands.js';
 
-export function createCheckIn({ questions, settings, sessionType = 'scheduled', now = new Date() }) {
+export function createCheckIn({ questions, settings, sessionType = 'scheduled', now = new Date(), existing = null }) {
   return {
-    id: crypto.randomUUID(),
-    localDate: getObservationDate(now, settings),
-    startedAt: now.toISOString(),
+    id: existing?.id ?? crypto.randomUUID(),
+    localDate: existing?.localDate ?? getObservationDate(now, settings),
+    startedAt: existing?.startedAt ?? now.toISOString(),
     completedAt: null,
-    timeBand: getTimeBand(now, settings),
-    sessionType,
+    timeBand: existing?.timeBand ?? getTimeBand(now, settings),
+    sessionType: existing?.sessionType ?? sessionType,
     questionIds: questions.map(question => question.id),
     responses: [],
-    contextTag: null,
+    contextTag: existing?.contextTag ?? null,
     appVersion: APP_VERSION,
-    questionBankVersion: QUESTION_BANK_VERSION
+    questionBankVersion: QUESTION_BANK_VERSION,
+    revision: Number(existing?.revision ?? 0),
+    editedAt: existing?.editedAt ?? null
   };
 }
 

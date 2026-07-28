@@ -4,8 +4,13 @@ import { createCheckIn, buildResponse, getResponseLabels } from './checkin.js';
 import { selectQuestions } from './question-selector.js';
 import { aggregateByDomain, getSessionDomainValues, isWarmupComplete } from './scoring.js';
 import { generateFeedback, hasSafetySignal, summarizeToday } from './feedback.js';
-import { clearAllData, getSessions, getSettings, saveSession, saveSettings } from './storage.js';
+import { clearAllData, deleteSession, getSessions, getSettings, importDataAtomic, saveSession, saveSettings } from './storage.js';
 import { exportCsv, exportJson } from './export.js';
+import { mergeSessionsById, parseBackupText, previewImport } from './import.js';
+import { getQuestionPreference, QUESTION_PREFERENCE, setQuestionPreference, summarizePreferences } from './preferences.js';
+import { calculateReadiness, dailyObservationMessage } from './readiness.js';
+import { detectPatterns } from './patterns.js';
+import { setupUpdateManager } from './update-manager.js';
 import { formatDateJa, getNextBand, getObservationDate, getTimeBand } from './time-bands.js';
 
 const appRoot = document.querySelector('#app');
@@ -20,7 +25,13 @@ const state = {
   questionShownAt: null,
   lastFeedback: '',
   lastSafetySignal: false,
-  storageError: null
+  storageError: null,
+  pendingImport: null,
+  importPreview: null,
+  editingOriginal: null,
+  updateWorker: null,
+  updateManager: null,
+  updateAfterCheckin: false
 };
 
 const fallbackQuestions = [
@@ -49,8 +60,16 @@ function nav(active) {
   return `<nav class="bottom-nav" aria-label="メインナビゲーション">${items.map(([route,label]) => `<a href="#/${route}" ${active === route ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
 }
 
+function updateBanner() {
+  if (!state.updateWorker) return '';
+  return `<div class="update-banner" role="status">
+    <div><strong>新しいバージョンがあります</strong><span>入力中の内容を守ってから更新できます。</span></div>
+    <div class="update-banner__actions"><button type="button" data-action="dismiss-update">あとで</button><button type="button" data-action="apply-update">更新</button></div>
+  </div>`;
+}
+
 function renderShell(content, { route = 'home', focus = true, navVisible = true, close = false } = {}) {
-  appRoot.innerHTML = `<div class="page ${navVisible ? '' : 'page--focus'}">${header({ close })}<main id="app-main" tabindex="-1">${content}</main></div>${navVisible ? nav(route) : ''}`;
+  appRoot.innerHTML = `<div class="page ${navVisible ? '' : 'page--focus'}">${header({ close })}<main id="app-main" tabindex="-1">${content}</main></div>${updateBanner()}${navVisible ? nav(route) : ''}`;
   if (focus) requestAnimationFrame(() => document.querySelector('#app-main')?.focus({ preventScroll: true }));
   bindGlobalActions();
 }
@@ -59,7 +78,20 @@ function bindGlobalActions() {
   document.querySelector('[data-action="close-checkin"]')?.addEventListener('click', () => {
     state.active = null;
     state.activeQuestions = [];
+    state.editingOriginal = null;
     router.go('home');
+  });
+  document.querySelector('[data-action="dismiss-update"]')?.addEventListener('click', () => {
+    state.updateWorker = null;
+    renderRoute(router.current());
+  });
+  document.querySelector('[data-action="apply-update"]')?.addEventListener('click', () => {
+    if (state.active && !state.active.completedAt) {
+      state.updateAfterCheckin = true;
+      alert('回答を保存した後に更新します。');
+      return;
+    }
+    state.updateManager?.applyUpdate(state.updateWorker);
   });
 }
 
@@ -106,7 +138,7 @@ function renderOnboarding() {
         <div class="onboarding-point"><strong>ON DEVICE</strong><span>回答はこのブラウザ内に保存します。</span></div>
         <div class="onboarding-point"><strong>NOT MEDICAL</strong><span>診断や受診判断を行うものではありません。</span></div>
       </div>
-      <div class="notice"><p class="summary-text small">ブラウザのデータ削除や端末変更で記録が失われる場合があります。必要に応じて設定から書き出せます。</p></div>
+      <div class="notice"><p class="summary-text small">ブラウザのデータ削除や端末変更で記録が失われる場合があります。設定からバックアップできます。</p></div>
       <button class="primary-button" type="button" data-action="begin">はじめる</button>
     </section>`, { navVisible: false });
   document.querySelector('[data-action="begin"]')?.addEventListener('click', async () => {
@@ -123,8 +155,9 @@ function renderHome() {
   const existing = getScheduledSession(localDate, timeBand);
   const nextBand = getNextBand(timeBand);
   const summary = summarizeToday(state.sessions, state.questionMap, localDate);
-  const warmup = isWarmupComplete(state.sessions, timeBand);
-  const totalDays = new Set(state.sessions.map(session => session.localDate)).size;
+  const readiness = calculateReadiness(state.sessions);
+  const patterns = detectPatterns(state.sessions, state.questionMap);
+  const dailyMessage = dailyObservationMessage(state.sessions, localDate);
 
   renderShell(`
     <section class="hero">
@@ -146,34 +179,64 @@ function renderHome() {
 
     <section class="section" aria-labelledby="today-heading">
       <div class="section-heading"><h2 id="today-heading">今日の流れ</h2><a href="#/today">詳しく見る</a></div>
-      <div class="panel">${flowMarkup(localDate)}<p class="summary-text ${state.settings.privacyMode ? 'muted' : ''}" style="margin-top:1rem">${state.settings.privacyMode ? 'プライバシーモード中：要約を非表示にしています。' : escapeHtml(summary)}</p></div>
+      <div class="panel">${flowMarkup(localDate)}<p class="summary-text ${state.settings.privacyMode ? 'muted' : ''}" style="margin-top:1rem">${state.settings.privacyMode ? 'プライバシーモード中：要約を非表示にしています。' : escapeHtml(summary)}</p><p class="small muted">${escapeHtml(dailyMessage)}</p></div>
     </section>
 
-    <section class="section">
-      <div class="notice"><p class="summary-text"><strong>${warmup ? '平常値を観測しています' : '平常値を学習中です'}</strong><br><span class="muted small">${warmup ? '同じ時間帯の過去回答と比較できます。' : `${totalDays}日分を記録しました。7日・10回以上が目安です。`}</span></p></div>
-    </section>`, { route: 'home' });
+    <section class="section"><div class="notice readiness-card"><p class="eyebrow">観測のようす</p><p class="summary-text"><strong>${escapeHtml(readiness.title)}</strong><br><span class="muted small">${escapeHtml(readiness.description)}</span></p></div></section>
+
+    ${patterns[0] ? `<section class="section"><div class="section-heading"><h2>最近の変化の型</h2><a href="#/trends">詳しく見る</a></div><div class="pattern-card"><strong>${escapeHtml(patterns[0].title)}</strong><p class="small muted">${escapeHtml(patterns[0].description)}</p><span class="pattern-card__meta">${patterns[0].evaluableDays}日中${patterns[0].count}日</span></div></section>` : ''}
+  `, { route: 'home' });
 
   document.querySelector('[data-action="start"]')?.addEventListener('click', () => startCheckIn(false));
   document.querySelector('[data-action="start-adhoc"]')?.addEventListener('click', () => startCheckIn(true));
 }
 
-function startCheckIn(adHoc) {
+function startCheckIn(adHoc, existing = null) {
   const now = new Date();
-  const timeBand = getTimeBand(now, state.settings);
-  const localDate = getObservationDate(now, state.settings);
-  state.activeQuestions = selectQuestions({
-    questions: state.questions,
-    timeBand,
-    sessions: state.sessions,
-    now,
-    localDate,
-    count: 3
-  });
+  const timeBand = existing?.timeBand ?? getTimeBand(now, state.settings);
+  const localDate = existing?.localDate ?? getObservationDate(now, state.settings);
+  state.activeQuestions = existing
+    ? (existing.questionIds ?? []).map(id => state.questionMap.get(id)).filter(Boolean)
+    : selectQuestions({
+        questions: state.questions,
+        timeBand,
+        sessions: state.sessions,
+        now,
+        localDate,
+        count: 3,
+        preferences: state.settings.questionPreferences
+      });
   if (state.activeQuestions.length < 3) state.activeQuestions = fallbackQuestions;
-  state.active = createCheckIn({ questions: state.activeQuestions, settings: state.settings, sessionType: adHoc ? 'ad_hoc' : 'scheduled', now });
+  state.editingOriginal = existing ? structuredClone(existing) : null;
+  state.active = createCheckIn({
+    questions: state.activeQuestions,
+    settings: state.settings,
+    sessionType: adHoc ? 'ad_hoc' : 'scheduled',
+    now,
+    existing
+  });
   state.activeIndex = 0;
   state.questionShownAt = new Date();
   router.go('checkin');
+}
+
+function questionOptionsDialog(question) {
+  const preference = getQuestionPreference(state.settings.questionPreferences, question.id);
+  const hiddenDisabled = question.domain === 'overall';
+  return `<dialog class="question-dialog" id="question-dialog">
+    <form method="dialog">
+      <p class="eyebrow">この質問について</p>
+      <h2>${escapeHtml(question.prompt)}</h2>
+      <p class="small muted">設定は次回以降の質問選択に反映します。</p>
+      <div class="choice-stack">
+        <button value="normal" data-preference="normal" class="${preference === 'normal' ? 'is-selected' : ''}">通常どおり表示</button>
+        <button value="less" data-preference="less" class="${preference === 'less' ? 'is-selected' : ''}">出現頻度を減らす</button>
+        <button value="hidden" data-preference="hidden" ${hiddenDisabled ? 'disabled' : ''} class="${preference === 'hidden' ? 'is-selected' : ''}">今後表示しない</button>
+      </div>
+      ${hiddenDisabled ? '<p class="small muted">全体感の質問はチェックインの基準になるため、完全には非表示にできません。</p>' : ''}
+      <button class="text-button" value="cancel">閉じる</button>
+    </form>
+  </dialog>`;
 }
 
 function renderCheckIn() {
@@ -193,15 +256,42 @@ function renderCheckIn() {
       <div class="answer-list" role="group" aria-labelledby="question-title">
         ${labels.map((label, index) => `<button class="answer-button" type="button" data-answer="${index}"><span>${index + 1}</span>${escapeHtml(label)}</button>`).join('')}
       </div>
-    </div>`, { navVisible: false, close: true });
+      <div class="question-tools">
+        ${state.activeIndex > 0 ? '<button class="text-button" type="button" data-action="previous-question">一つ前へ</button>' : '<span></span>'}
+        <button class="text-button" type="button" data-action="question-options">この質問について</button>
+      </div>
+    </div>
+    ${questionOptionsDialog(question)}
+  `, { navVisible: false, close: true });
 
   document.querySelector('.answer-button')?.focus({ preventScroll: true });
   document.querySelectorAll('[data-answer]').forEach(button => button.addEventListener('click', () => answerQuestion(Number(button.dataset.answer))));
+  document.querySelector('[data-action="previous-question"]')?.addEventListener('click', previousQuestion);
+  document.querySelector('[data-action="question-options"]')?.addEventListener('click', () => document.querySelector('#question-dialog')?.showModal());
+  document.querySelectorAll('[data-preference]').forEach(button => button.addEventListener('click', async event => {
+    event.preventDefault();
+    state.settings.questionPreferences = setQuestionPreference(
+      state.settings.questionPreferences,
+      question.id,
+      button.dataset.preference
+    );
+    await persistSettings();
+    document.querySelector('#question-dialog')?.close();
+  }));
+}
+
+function previousQuestion() {
+  if (state.activeIndex <= 0) return;
+  state.activeIndex -= 1;
+  state.active.responses = state.active.responses.slice(0, state.activeIndex);
+  state.questionShownAt = new Date();
+  renderCheckIn();
 }
 
 async function answerQuestion(selectedIndex) {
   const question = state.activeQuestions[state.activeIndex];
-  state.active.responses.push(buildResponse(question, selectedIndex, state.questionShownAt, new Date()));
+  state.active.responses[state.activeIndex] = buildResponse(question, selectedIndex, state.questionShownAt, new Date());
+  state.active.responses = state.active.responses.slice(0, state.activeIndex + 1);
   state.activeIndex += 1;
   if (state.activeIndex < state.activeQuestions.length) {
     state.questionShownAt = new Date();
@@ -210,14 +300,25 @@ async function answerQuestion(selectedIndex) {
   }
 
   state.active.completedAt = new Date().toISOString();
-  const prior = [...state.sessions];
+  if (state.editingOriginal) {
+    state.active.revision = Number(state.editingOriginal.revision ?? 0) + 1;
+    state.active.editedAt = state.active.completedAt;
+  }
+  const prior = state.sessions.filter(session => session.id !== state.active.id);
   state.lastFeedback = generateFeedback(state.active, prior, state.questionMap);
   state.lastSafetySignal = hasSafetySignal(state.active, state.questionMap);
   try {
     await saveSession(state.active);
-    state.sessions.push(structuredClone(state.active));
+    const index = state.sessions.findIndex(session => session.id === state.active.id);
+    if (index >= 0) state.sessions[index] = structuredClone(state.active);
+    else state.sessions.push(structuredClone(state.active));
     state.sessions.sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt));
+    state.editingOriginal = null;
     router.go('complete');
+    if (state.updateAfterCheckin) {
+      state.updateAfterCheckin = false;
+      setTimeout(() => state.updateManager?.applyUpdate(state.updateWorker), 400);
+    }
   } catch (error) {
     console.error('Session save failed without response details', error?.name);
     renderSaveError();
@@ -234,7 +335,9 @@ function renderSaveError() {
   document.querySelector('[data-action="retry-save"]')?.addEventListener('click', async () => {
     try {
       await saveSession(state.active);
-      state.sessions.push(structuredClone(state.active));
+      const index = state.sessions.findIndex(session => session.id === state.active.id);
+      if (index >= 0) state.sessions[index] = structuredClone(state.active);
+      else state.sessions.push(structuredClone(state.active));
       router.go('complete');
     } catch { renderSaveError(); }
   });
@@ -253,12 +356,17 @@ function renderComplete() {
       <h1 style="text-align:center">記録しました</h1>
       <p class="feedback">${escapeHtml(state.lastFeedback)}</p>
     </section>
-    ${state.lastSafetySignal ? `<section class="section"><div class="notice notice--safety"><p class="summary-text"><strong>いつもと明らかに違う強い症状がありますか？</strong><br><span class="small">このアプリだけで判断せず、公的な救急案内を確認してください。</span></p><a class="secondary-button" style="display:inline-grid;place-items:center;text-decoration:none;margin-top:.8rem" href="#/safety">安全案内を見る</a></div></section>` : ''}
+    ${state.lastSafetySignal ? `<section class="section"><div class="notice notice--safety"><p class="summary-text"><strong>いつもと明らかに違う強い症状がありますか？</strong><br><span class="small">このアプリだけで判断せず、公的な救急案内を確認してください。</span></p><a class="secondary-button inline-action" href="#/safety">安全案内を見る</a></div></section>` : ''}
     <section class="section" aria-labelledby="tag-heading">
       <div class="section-heading"><h2 id="tag-heading">きっかけを一つ残す</h2><span class="muted small">任意</span></div>
       <div class="tag-list">${CONTEXT_TAGS.map(tag => `<button class="tag-button" type="button" aria-pressed="${state.active.contextTag === tag}" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}</div>
     </section>
-    <div class="button-row"><a class="primary-button" style="display:grid;place-items:center;text-decoration:none" href="#/today">今日の流れを見る</a><a class="secondary-button" style="display:grid;place-items:center;text-decoration:none" href="#/home">ホームへ</a></div>`, { navVisible: false });
+    <section class="section compact-actions">
+      <button class="secondary-button" type="button" data-action="edit-session">回答を修正</button>
+      <button class="text-button danger-text" type="button" data-action="delete-session">この記録を取り消す</button>
+    </section>
+    <div class="button-row"><a class="primary-button link-button" href="#/today">今日の流れを見る</a><a class="secondary-button link-button" href="#/home">ホームへ</a></div>
+  `, { navVisible: false });
 
   document.querySelectorAll('[data-tag]').forEach(button => button.addEventListener('click', async () => {
     state.active.contextTag = button.dataset.tag;
@@ -267,6 +375,14 @@ function renderComplete() {
     try { await saveSession(state.active); } catch { /* Tag failure does not invalidate the completed session. */ }
     document.querySelectorAll('[data-tag]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
   }));
+  document.querySelector('[data-action="edit-session"]')?.addEventListener('click', () => startCheckIn(false, state.active));
+  document.querySelector('[data-action="delete-session"]')?.addEventListener('click', async () => {
+    if (!confirm('この記録を取り消しますか？元に戻せません。')) return;
+    await deleteSession(state.active.id);
+    state.sessions = state.sessions.filter(session => session.id !== state.active.id);
+    state.active = null;
+    router.go('home');
+  });
 }
 
 function sessionCard(session) {
@@ -275,7 +391,7 @@ function sessionCard(session) {
   const overall = values.get('overall');
   const domains = [...values.keys()].filter(domain => domain !== 'overall');
   return `<article class="time-card time-card--done">
-    <div class="time-card__head"><div><h3>${TIME_BAND_LABELS[session.timeBand]}${session.sessionType === 'ad_hoc' ? '・追加' : ''}</h3><span class="muted small">${new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit'}).format(new Date(session.completedAt))}</span></div><span class="time-card__value" aria-label="全体感 ${overallGlyph(overall)}">${overallGlyph(overall)}</span></div>
+    <div class="time-card__head"><div><h3>${TIME_BAND_LABELS[session.timeBand]}${session.sessionType === 'ad_hoc' ? '・追加' : ''}</h3><span class="muted small">${new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit'}).format(new Date(session.completedAt))}${session.editedAt ? '・修正済み' : ''}</span></div><span class="time-card__value" aria-label="全体感 ${overallGlyph(overall)}">${overallGlyph(overall)}</span></div>
     <div class="domain-pills">${domains.map(domain => `<span class="domain-pill">${DOMAIN_LABELS[domain]}</span>`).join('')}</div>
     ${session.contextTag ? `<p class="small muted">きっかけ：${escapeHtml(session.contextTag)}</p>` : ''}
   </article>`;
@@ -291,7 +407,7 @@ function renderToday() {
       ${['morning','daytime','evening'].map(band => `<section><div class="section-heading"><h2>${TIME_BAND_LABELS[band]}</h2></div>${sessionCard(scheduled[band])}</section>`).join('')}
     </div>
     ${sessions.some(item => item.sessionType === 'ad_hoc') ? `<section class="section"><div class="section-heading"><h2>追加チェック</h2></div><div class="time-grid">${sessions.filter(item => item.sessionType === 'ad_hoc').map(sessionCard).join('')}</div></section>` : ''}
-    <section class="section"><div class="notice"><p class="summary-text small">未回答の時間帯は空欄のままです。回答しなかったことを、状態の悪化とはみなしません。</p></div></section>`, { route: 'today' });
+    <section class="section"><div class="notice"><p class="summary-text small">${escapeHtml(dailyObservationMessage(state.sessions, localDate))}<br>未回答の時間帯は空欄のままで、状態の悪化とはみなしません。</p></div></section>`, { route: 'today' });
 }
 
 function trendDescription(item) {
@@ -304,13 +420,15 @@ function trendDescription(item) {
 function renderTrends() {
   const trends = aggregateByDomain(state.sessions, state.questionMap, 7).filter(item => item.domain !== 'overall');
   const warmup = isWarmupComplete(state.sessions);
+  const patterns = detectPatterns(state.sessions, state.questionMap);
   renderShell(`
     <section class="hero"><p class="eyebrow">Seven-day pattern</p><h1>7日間の傾向</h1><p class="lead">${warmup ? '数値そのものではなく、領域ごとの動きを表示します。' : '平常値を学習中です。今は記録の分布だけを静かに示します。'}</p></section>
+    ${patterns.length ? `<section class="section"><div class="section-heading"><h2>14日間の変化の型</h2></div><div class="pattern-list">${patterns.map(pattern => `<article class="pattern-card"><strong>${escapeHtml(pattern.title)}</strong><p class="small muted">${escapeHtml(pattern.description)}</p><span class="pattern-card__meta">${pattern.evaluableDays}日中${pattern.count}日</span></article>`).join('')}</div></section>` : '<div class="notice"><p class="summary-text">変化の型を示すには、同じ日に2回以上記録した日がもう少し必要です。</p></div>'}
     ${trends.length ? `<div class="trend-grid">${trends.map(item => {
       const width = Math.max(5, Math.min(95, ((item.average + 2) / 4) * 100));
       return `<article class="trend-card"><div class="time-card__head"><h2>${DOMAIN_LABELS[item.domain]}</h2><span class="muted small">${item.sampleCount}回</span></div><p class="small muted">${trendDescription(item)}</p><div class="trend-meter" aria-label="回答分布の位置"><span style="width:${width}%"></span></div></article>`;
     }).join('')}</div>` : '<div class="notice"><p class="summary-text">まだ傾向を表示できる記録がありません。</p></div>'}
-    <section class="section"><div class="notice"><p class="summary-text small">ここで示す傾向は診断や健康度ではありません。短い自己回答が、一緒にどう動いたかを振り返るための表示です。</p></div></section>
+    <section class="section"><div class="notice"><p class="summary-text small">ここで示す傾向や変化の型は、診断、健康度、原因の推定ではありません。</p></div></section>
     <section class="section"><div class="section-heading"><h2>最近の履歴</h2><a href="#/history">一覧を見る</a></div></section>`, { route: 'trends' });
 }
 
@@ -320,12 +438,23 @@ function renderHistory() {
     <section class="hero"><p class="eyebrow">Local archive</p><h1>履歴</h1><p class="lead">この端末のブラウザ内に保存されている記録です。</p></section>
     <div class="history-list">${ordered.length ? ordered.slice(0,100).map(session => {
       const overall = getSessionDomainValues(session, state.questionMap).get('overall');
-      return `<article class="history-item"><div class="history-item__head"><div><h3>${formatDateJa(session.localDate)}・${TIME_BAND_LABELS[session.timeBand]}</h3><span class="muted small">${new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit'}).format(new Date(session.completedAt))}${session.sessionType === 'ad_hoc' ? '・追加' : ''}</span></div><span class="time-card__value">${overallGlyph(overall)}</span></div>${session.contextTag ? `<p class="small muted">きっかけ：${escapeHtml(session.contextTag)}</p>` : ''}</article>`;
+      return `<article class="history-item"><div class="history-item__head"><div><h3>${formatDateJa(session.localDate)}・${TIME_BAND_LABELS[session.timeBand]}</h3><span class="muted small">${new Intl.DateTimeFormat('ja-JP',{hour:'2-digit',minute:'2-digit'}).format(new Date(session.completedAt))}${session.sessionType === 'ad_hoc' ? '・追加' : ''}${session.editedAt ? '・修正済み' : ''}</span></div><span class="time-card__value">${overallGlyph(overall)}</span></div>${session.contextTag ? `<p class="small muted">きっかけ：${escapeHtml(session.contextTag)}</p>` : ''}</article>`;
     }).join('') : '<div class="notice"><p class="summary-text">まだ記録はありません。</p></div>'}</div>`, { route: 'trends' });
+}
+
+function customizedQuestionMarkup() {
+  const entries = Object.entries(state.settings.questionPreferences ?? {});
+  if (!entries.length) return '<p class="muted small">調整した質問はありません。質問画面の「この質問について」から設定できます。</p>';
+  return `<div class="preference-list">${entries.map(([id, preference]) => {
+    const question = state.questionMap.get(id);
+    const label = preference === QUESTION_PREFERENCE.HIDDEN ? '表示しない' : '頻度を減らす';
+    return `<div class="preference-item"><span>${escapeHtml(question?.prompt ?? id)}<small>${label}</small></span><button type="button" data-reset-question="${escapeHtml(id)}">元に戻す</button></div>`;
+  }).join('')}</div>`;
 }
 
 function renderSettings() {
   const bands = state.settings.timeBands;
+  const preferenceSummary = summarizePreferences(state.settings.questionPreferences);
   renderShell(`
     <section class="hero"><p class="eyebrow">Local control</p><h1>設定</h1><p class="lead">時間帯と、この端末に保存したデータを管理します。</p></section>
     <section class="settings-group"><div class="section-heading"><h2>時間帯</h2></div><form class="panel" id="time-form">
@@ -338,9 +467,14 @@ function renderSettings() {
       <label class="toggle"><span><strong>要約をホームで隠す</strong><br><span class="muted small">共有端末での簡易的な配慮です。</span></span><input type="checkbox" data-setting="privacyMode" ${state.settings.privacyMode ? 'checked' : ''}></label>
       <label class="toggle"><span><strong>動きを少なくする</strong><br><span class="muted small">画面遷移の演出を抑えます。</span></span><input type="checkbox" data-setting="reducedMotion" ${state.settings.reducedMotion ? 'checked' : ''}></label>
     </div></section>
+    <section class="settings-group"><div class="section-heading"><h2>質問の表示設定</h2><span class="muted small">${preferenceSummary.customized}件調整</span></div><div class="panel">
+      ${customizedQuestionMarkup()}
+      ${preferenceSummary.customized ? '<button class="text-button" type="button" data-action="reset-question-preferences">すべて通常に戻す</button>' : ''}
+    </div></section>
     <section class="settings-group"><div class="section-heading"><h2>データ</h2></div><div class="panel">
-      <p class="muted small">書き出すファイルには、健康に関する私的な回答が含まれます。保存先と共有先に注意してください。</p>
-      <div class="button-row"><button class="secondary-button" type="button" data-action="export-json">JSONバックアップ</button><button class="secondary-button" type="button" data-action="export-csv">CSVを書き出す</button></div>
+      <p class="muted small">バックアップには健康に関する私的な回答が含まれます。ファイルは外部サーバーへ送信しません。</p>
+      <div class="button-row"><button class="secondary-button" type="button" data-action="export-json">JSONバックアップ</button><button class="secondary-button" type="button" data-action="import-json">JSONを読み込む</button><button class="secondary-button" type="button" data-action="export-csv">CSVを書き出す</button></div>
+      <input class="visually-hidden" id="import-file" type="file" accept="application/json,.json">
       <button class="danger-button" type="button" data-action="delete-all">すべてのデータを削除</button>
     </div></section>
     <section class="settings-group"><div class="section-heading"><h2>このアプリについて</h2></div><div class="notice"><p class="summary-text small">Condition Pulse v${APP_VERSION}<br>質問バンク ${QUESTION_BANK_VERSION}<br><br>病気の診断、疾病リスクの算定、受診判断を行うものではありません。回答は外部へ送信しません。</p></div></section>`, { route: 'settings' });
@@ -364,8 +498,21 @@ function renderSettings() {
     document.documentElement.classList.toggle('reduce-motion', state.settings.reducedMotion);
     await persistSettings();
   }));
+  document.querySelectorAll('[data-reset-question]').forEach(button => button.addEventListener('click', async () => {
+    state.settings.questionPreferences = setQuestionPreference(state.settings.questionPreferences, button.dataset.resetQuestion, QUESTION_PREFERENCE.NORMAL);
+    await persistSettings();
+    renderSettings();
+  }));
+  document.querySelector('[data-action="reset-question-preferences"]')?.addEventListener('click', async () => {
+    if (!confirm('すべての質問設定を通常に戻しますか？')) return;
+    state.settings.questionPreferences = {};
+    await persistSettings();
+    renderSettings();
+  });
   document.querySelector('[data-action="export-json"]')?.addEventListener('click', () => exportJson({ sessions: state.sessions, settings: state.settings, appVersion: APP_VERSION, questionBankVersion: QUESTION_BANK_VERSION }));
   document.querySelector('[data-action="export-csv"]')?.addEventListener('click', () => exportCsv({ sessions: state.sessions, questionMap: state.questionMap }));
+  document.querySelector('[data-action="import-json"]')?.addEventListener('click', () => document.querySelector('#import-file')?.click());
+  document.querySelector('#import-file')?.addEventListener('change', handleImportFile);
   document.querySelector('[data-action="delete-all"]')?.addEventListener('click', async () => {
     if (!confirm('この端末に保存した回答、設定、平常値をすべて削除します。元に戻せません。')) return;
     if (!confirm('本当にすべて削除しますか？')) return;
@@ -376,6 +523,79 @@ function renderSettings() {
     router.go('home');
     renderOnboarding();
   });
+}
+
+async function handleImportFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const backup = parseBackupText(await file.text());
+    state.pendingImport = backup;
+    state.importPreview = previewImport(state.sessions, backup);
+    router.go('import');
+  } catch (error) {
+    alert(error?.message ?? 'バックアップを読み込めませんでした。');
+  }
+}
+
+function renderImport() {
+  if (!state.pendingImport || !state.importPreview) {
+    router.go('settings');
+    return;
+  }
+  const preview = state.importPreview;
+  renderShell(`
+    <section class="hero"><p class="eyebrow">Local restore</p><h1>バックアップを確認</h1><p class="lead">内容を確認してから、この端末へ反映します。</p></section>
+    <section class="panel import-summary">
+      <dl>
+        <div><dt>記録</dt><dd>${preview.incomingCount}件</dd></div>
+        <div><dt>期間</dt><dd>${preview.earliestDate ?? '—'}〜${preview.latestDate ?? '—'}</dd></div>
+        <div><dt>既存との重複</dt><dd>${preview.duplicates}件</dd></div>
+        <div><dt>バックアップ形式</dt><dd>v${preview.schemaVersion}</dd></div>
+      </dl>
+    </section>
+    <section class="section"><div class="notice"><p class="summary-text small"><strong>追加・統合</strong>は現在の記録を残し、未登録の記録だけを追加します。設定は現在のものを維持します。</p></div></section>
+    <button class="primary-button" type="button" data-action="merge-import">追加・統合する（${preview.additions}件）</button>
+    <section class="section"><div class="notice notice--safety"><p class="summary-text small"><strong>置き換え</strong>は現在の記録と設定を、バックアップの内容で置き換えます。実行前に現在のJSONを自動で書き出します。</p></div></section>
+    <button class="danger-button full-button" type="button" data-action="replace-import">現在のデータを置き換える</button>
+    <button class="text-button full-button" type="button" data-action="cancel-import">キャンセル</button>
+  `, { navVisible: false });
+
+  document.querySelector('[data-action="merge-import"]')?.addEventListener('click', () => performImport('merge'));
+  document.querySelector('[data-action="replace-import"]')?.addEventListener('click', async () => {
+    if (!confirm('現在のデータをバックアップ内容で置き換えますか？')) return;
+    if (!confirm('この操作は元に戻せません。続けますか？')) return;
+    exportJson({ sessions: state.sessions, settings: state.settings, appVersion: APP_VERSION, questionBankVersion: QUESTION_BANK_VERSION });
+    await performImport('replace');
+  });
+  document.querySelector('[data-action="cancel-import"]')?.addEventListener('click', () => {
+    state.pendingImport = null;
+    state.importPreview = null;
+    router.go('settings');
+  });
+}
+
+async function performImport(mode) {
+  try {
+    if (mode === 'merge') {
+      const merged = mergeSessionsById(state.sessions, state.pendingImport.sessions);
+      await importDataAtomic({ sessions: state.pendingImport.sessions, settings: null, mode: 'merge' });
+      state.sessions = merged.sessions;
+      alert(`${merged.added}件の記録を追加しました。`);
+    } else {
+      await importDataAtomic({ sessions: state.pendingImport.sessions, settings: state.pendingImport.settings, mode: 'replace' });
+      state.sessions = state.pendingImport.sessions;
+      state.settings = state.pendingImport.settings;
+      alert('バックアップから復元しました。');
+    }
+    state.pendingImport = null;
+    state.importPreview = null;
+    router.go('settings');
+  } catch (error) {
+    console.error('Import failed', error?.name);
+    alert('復元できませんでした。現在のデータは変更されていない可能性があります。');
+  }
 }
 
 function renderSafety() {
@@ -392,7 +612,7 @@ async function persistSettings() {
 }
 
 function renderRoute(route) {
-  if (!state.settings.onboardingCompleted && route !== 'safety') {
+  if (!state.settings.onboardingCompleted && route !== 'safety' && route !== 'import') {
     renderOnboarding();
     return;
   }
@@ -404,6 +624,7 @@ function renderRoute(route) {
     trends: renderTrends,
     history: renderHistory,
     settings: renderSettings,
+    import: renderImport,
     safety: renderSafety
   };
   (renderers[route] ?? renderHome)();
@@ -435,8 +656,18 @@ async function initialize() {
   document.documentElement.classList.toggle('reduce-motion', state.settings.reducedMotion);
   router.start();
 
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('./sw.js').catch(error => console.warn('Service worker registration failed', error?.message));
+  try {
+    state.updateManager = await setupUpdateManager({
+      onUpdateAvailable(worker) {
+        state.updateWorker = worker;
+        renderRoute(router.current());
+      },
+      onControllerChange() {
+        location.reload();
+      }
+    });
+  } catch (error) {
+    console.warn('Service worker registration failed', error?.message);
   }
 }
 
