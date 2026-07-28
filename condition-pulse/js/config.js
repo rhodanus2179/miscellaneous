@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.1.1';
 export const QUESTION_BANK_VERSION = '2026-07-28';
 
 export const DOMAIN_LABELS = Object.freeze({
