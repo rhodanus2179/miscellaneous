@@ -1,0 +1,14 @@
+.settings-group .panel,
+.settings-group .field {
+  min-width: 0;
+}
+
+.field input[type="time"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
