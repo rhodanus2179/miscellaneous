@@ -24,3 +24,4 @@ Small experiments, visual tools and strange little applications.
 日本語文章を意味のまとまりに分割し、読み戻し可能な表示と可変ペースで通読を支援する、端末内完結型の読書ペースメーカー。
 
 - Requirements: [`yomu-pace/REQUIREMENTS.md`](./yomu-pace/REQUIREMENTS.md)
+- v0.1 Design: [`yomu-pace/DESIGN.md`](./yomu-pace/DESIGN.md)
