@@ -206,27 +206,31 @@ function optimizeSentence(text: string, presetName: ChunkLengthPreset): Array<{ 
     if (!end) continue;
     for (let startIndex = endIndex - 1, examined = 0; startIndex >= 0 && examined < 80; startIndex -= 1, examined += 1) {
       const start = candidates[startIndex];
-      if (!start || !Number.isFinite(dp[startIndex])) continue;
+      const startCost = dp[startIndex];
+      if (!start || startCost === undefined || !Number.isFinite(startCost)) continue;
       const part = text.slice(start.position, end.position);
       const length = visibleCharacterCount(part);
       if (length > preset.hardMax * 2.5 && startIndex < endIndex - 1) break;
-      const cost = dp[startIndex] + segmentPenalty(part, length, preset, end.mask);
-      if (cost < (dp[endIndex] ?? Number.POSITIVE_INFINITY)) {
+      const cost = startCost + segmentPenalty(part, length, preset, end.mask);
+      const currentCost = dp[endIndex] ?? Number.POSITIVE_INFINITY;
+      if (cost < currentCost) {
         dp[endIndex] = cost;
         previous[endIndex] = startIndex;
       }
     }
   }
 
-  if (previous[size - 1] === -1) return [{ start: 0, end: text.length, fallback: true }];
+  const finalPrevious = previous[size - 1];
+  if (finalPrevious === undefined || finalPrevious === -1) return [{ start: 0, end: text.length, fallback: true }];
 
   const result: Array<{ start: number; end: number; fallback: boolean }> = [];
   let cursor = size - 1;
   while (cursor > 0) {
     const before = previous[cursor];
+    if (before === undefined || before < 0) return [{ start: 0, end: text.length, fallback: true }];
     const start = candidates[before];
     const end = candidates[cursor];
-    if (before < 0 || !start || !end) return [{ start: 0, end: text.length, fallback: true }];
+    if (!start || !end) return [{ start: 0, end: text.length, fallback: true }];
     const fallback = Boolean((end.mask & MASK_FALLBACK) && !(end.mask & (MASK_BUDOUX | MASK_PUNCTUATION | MASK_SENTENCE)));
     result.push({ start: start.position, end: end.position, fallback });
     cursor = before;
