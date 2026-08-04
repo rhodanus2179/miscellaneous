@@ -1,0 +1,28 @@
+{
+  "name": "yomu-pace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "日本語の意味のまとまりを保ちながら、一定のペースで読めるローカルファースト読書支援アプリ",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check": "npm run test && npm run build"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "budoux": "0.8.4",
+    "fflate": "0.8.3",
+    "idb": "8.0.3",
+    "marked": "18.0.7"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}
