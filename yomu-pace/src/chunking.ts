@@ -18,6 +18,7 @@ const PRESETS: Record<ChunkLengthPreset, { target: number; softMin: number; soft
 };
 
 const UNIT_TEST = /(?:%|％|t|kg|g|mg|km|cm|mm|m²|m³|m2|m3|L|mL|円|万円|億円|人|件|台|本|枚|日|月|年|時間|分|秒|℃|度)(?:\b|$)/iu;
+const URL_PATTERN = /https?:\/\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+/gu;
 const URL_TEST = /^https?:\/\//iu;
 const PARTICLE_ONLY = /^(?:[、，・\s]*(?:は|が|を|に|へ|で|と|の|も|や|か|から|まで|より|です|ます|である|だった|となる)[、，・\s]*)+$/u;
 const OPEN_BRACKET_END = /[（([｛「『【〈《〔]$/u;
@@ -84,28 +85,6 @@ export function visibleCharacterCount(text: string): number {
   return count;
 }
 
-function sentenceRanges(text: string): Range[] {
-  const ranges: Range[] = [];
-  let start = 0;
-  let index = 0;
-  const closers = new Set(['」', '』', '】', '〉', '》', '〕', ')', '）', ']', '｝']);
-
-  while (index < text.length) {
-    const char = text[index] ?? '';
-    if ('。！？!?'.includes(char)) {
-      let end = index + char.length;
-      while (end < text.length && closers.has(text[end] ?? '')) end += (text[end] ?? '').length;
-      ranges.push({ start, end });
-      start = end;
-      index = end;
-      continue;
-    }
-    index += char.length || 1;
-  }
-  if (start < text.length) ranges.push({ start, end: text.length });
-  return ranges.filter((range) => range.end > range.start);
-}
-
 function collectMatches(text: string, regex: RegExp, priority: number, output: ProtectedRange[]): void {
   for (const match of text.matchAll(regex)) {
     const value = match[0];
@@ -117,7 +96,7 @@ function collectMatches(text: string, regex: RegExp, priority: number, output: P
 export function protectedRanges(text: string): Range[] {
   const ranges: ProtectedRange[] = [];
   collectMatches(text, /`[^`\n]+`/gu, 100, ranges);
-  collectMatches(text, /https?:\/\/[^\s<>()]+/gu, 90, ranges);
+  collectMatches(text, URL_PATTERN, 90, ranges);
   collectMatches(text, /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[A-Za-z]{2,}/gu, 85, ranges);
   collectMatches(text, /(?:令和|平成|昭和)?\s*\d{1,4}年\s*\d{1,2}月(?:\s*\d{1,2}日)?/gu, 80, ranges);
   collectMatches(text, /\d{1,2}:\d{2}(?:\s*[〜～-]\s*\d{1,2}:\d{2})?/gu, 80, ranges);
@@ -135,6 +114,29 @@ export function protectedRanges(text: string): Range[] {
 
 function isInsideProtected(position: number, ranges: Range[]): boolean {
   return ranges.some((range) => position > range.start && position < range.end);
+}
+
+function sentenceRanges(text: string): Range[] {
+  const ranges: Range[] = [];
+  const protectedSpans = protectedRanges(text);
+  let start = 0;
+  let index = 0;
+  const closers = new Set(['」', '』', '】', '〉', '》', '〕', ')', '）', ']', '｝']);
+
+  while (index < text.length) {
+    const char = text[index] ?? '';
+    if ('。！？!?'.includes(char) && !isInsideProtected(index, protectedSpans)) {
+      let end = index + char.length;
+      while (end < text.length && closers.has(text[end] ?? '')) end += (text[end] ?? '').length;
+      ranges.push({ start, end });
+      start = end;
+      index = end;
+      continue;
+    }
+    index += char.length || 1;
+  }
+  if (start < text.length) ranges.push({ start, end: text.length });
+  return ranges.filter((range) => range.end > range.start);
 }
 
 function addCandidate(map: Map<number, number>, position: number, mask: number): void {
