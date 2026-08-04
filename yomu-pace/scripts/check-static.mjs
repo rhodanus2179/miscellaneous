@@ -31,7 +31,7 @@ async function exportedNames(modulePath) {
   for (const pattern of declarationPatterns) {
     for (const match of source.matchAll(pattern)) names.add(match[1]);
   }
-  for (const match of source.matchAll(/export\s*{([^}]+)}/gu)) {
+  for (const match of source.matchAll(/export\s*\{([^}]+)\}/gu)) {
     for (const item of match[1].split(',')) {
       const parts = item.trim().split(/\s+as\s+/u);
       if (parts[1]) names.add(parts[1].trim());
@@ -58,7 +58,7 @@ for (const file of runtimeFiles) {
     }
   }
 
-  for (const match of source.matchAll(/import\s*{([^}]+)}\s*from\s*['\"]([^'\"]+)['\"]/gu)) {
+  for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['\"]([^'\"]+)['\"]/gu)) {
     const target = resolve(dirname(file), match[2]);
     const available = await exportedNames(target);
     for (const item of match[1].split(',')) {
