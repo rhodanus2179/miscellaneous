@@ -1,0 +1,36 @@
+name: Yomu Pace Static
+
+on:
+  push:
+    branches:
+      - agent/implement-yomu-pace-static-v0.1
+    paths:
+      - 'yomu-pace/**'
+      - 'index.html'
+      - 'README.md'
+      - '.github/workflows/yomu-pace-static.yml'
+  pull_request:
+    paths:
+      - 'yomu-pace/**'
+      - 'index.html'
+      - 'README.md'
+      - '.github/workflows/yomu-pace-static.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: yomu-pace
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+      - name: Check static files
+        run: node scripts/check-static.mjs
+      - name: Run tests
+        run: node --test tests/*.test.mjs
