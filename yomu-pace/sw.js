@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yomu-pace-v0.1.0-static-1';
+const CACHE_NAME = 'yomu-pace-v0.1.0-static-2';
 const ASSETS = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/main.js', './js/app.js', './js/ui.js', './js/reader.js', './js/chunking.js', './js/markdown.js', './js/storage.js',
