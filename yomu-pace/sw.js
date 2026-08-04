@@ -1,7 +1,7 @@
 const CACHE_NAME = 'yomu-pace-v0.1.0-static-1';
 const ASSETS = [
   './', './index.html', './styles.css', './manifest.webmanifest',
-  './js/main.js', './js/app.js', './js/chunking.js', './js/markdown.js', './js/storage.js',
+  './js/main.js', './js/app.js', './js/ui.js', './js/reader.js', './js/chunking.js', './js/markdown.js', './js/storage.js',
   './vendor/budoux/budoux.js', './icons/icon-192.png', './icons/icon-512.png'
 ];
 self.addEventListener('install', (event) => {
