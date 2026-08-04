@@ -20,14 +20,35 @@ async function walk(dir) {
   return output;
 }
 
+async function exportedNames(modulePath) {
+  const source = await readFile(modulePath, 'utf8');
+  const names = new Set();
+  const declarationPatterns = [
+    /export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gu,
+    /export\s+class\s+([A-Za-z_$][\w$]*)/gu,
+    /export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gu,
+  ];
+  for (const pattern of declarationPatterns) {
+    for (const match of source.matchAll(pattern)) names.add(match[1]);
+  }
+  for (const match of source.matchAll(/export\s*{([^}]+)}/gu)) {
+    for (const item of match[1].split(',')) {
+      const parts = item.trim().split(/\s+as\s+/u);
+      if (parts[1]) names.add(parts[1].trim());
+      else if (parts[0]) names.add(parts[0].trim());
+    }
+  }
+  return names;
+}
+
 const jsFiles = (await walk(root)).filter((path) => /\.(?:js|mjs)$/u.test(path));
 const runtimeFiles = jsFiles.filter((file) => !file.includes('/tests/') && !file.includes('/scripts/'));
 
 for (const file of runtimeFiles) {
   const source = await readFile(file, 'utf8');
   const importPatterns = [
-    /import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"]/gu,
-    /import\(\s*['"]([^'"]+)['"]\s*\)/gu,
+    /import\s+(?:[^'\"]+\s+from\s+)?['\"]([^'\"]+)['\"]/gu,
+    /import\(\s*['\"]([^'\"]+)['\"]\s*\)/gu,
   ];
   for (const pattern of importPatterns) {
     for (const match of source.matchAll(pattern)) {
@@ -36,12 +57,23 @@ for (const file of runtimeFiles) {
       await stat(resolve(dirname(file), specifier));
     }
   }
+
+  for (const match of source.matchAll(/import\s*{([^}]+)}\s*from\s*['\"]([^'\"]+)['\"]/gu)) {
+    const target = resolve(dirname(file), match[2]);
+    const available = await exportedNames(target);
+    for (const item of match[1].split(',')) {
+      const importedName = item.trim().split(/\s+as\s+/u)[0]?.trim();
+      if (importedName && !available.has(importedName)) {
+        throw new Error(`Missing named export ${importedName} in ${target}, imported by ${file}`);
+      }
+    }
+  }
 }
 
 for (const file of runtimeFiles) {
   const source = await readFile(file, 'utf8');
   if (/https?:\/\//u.test(source) && !file.endsWith('vendor/budoux/budoux.js')) {
-    const allowed = source.replace(/https?:\/\/example\.com[^'"`\s)]*/gu, '');
+    const allowed = source.replace(/https?:\/\/example\.com[^'\"`\s)]*/gu, '');
     if (/https?:\/\//u.test(allowed)) throw new Error(`External runtime URL in ${file}`);
   }
 }
