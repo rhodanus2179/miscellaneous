@@ -27,3 +27,12 @@ jobs:
           node-version: '22.12'
       - run: npm install --no-audit --no-fund
       - run: npm run check
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: yomu-pace-v0.1-build
+          path: |
+            yomu-pace/dist
+            yomu-pace/package-lock.json
+          if-no-files-found: error
+          retention-days: 14
