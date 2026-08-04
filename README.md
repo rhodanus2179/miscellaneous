@@ -19,9 +19,13 @@ Small experiments, visual tools and strange little applications.
 - v0.1 Design: [`condition-pulse/DESIGN.md`](./condition-pulse/DESIGN.md)
 - v0.2 Design: [`condition-pulse/DESIGN_v0.2.md`](./condition-pulse/DESIGN_v0.2.md)
 
-### Yomu Pace（計画中）
+### Yomu Pace（再設計中）
 
 日本語文章を意味のまとまりに分割し、読み戻し可能な表示と可変ペースで通読を支援する、端末内完結型の読書ペースメーカー。
 
-- Requirements: [`yomu-pace/REQUIREMENTS.md`](./yomu-pace/REQUIREMENTS.md)
-- v0.1 Design: [`yomu-pace/DESIGN.md`](./yomu-pace/DESIGN.md)
+v0.1は、EPUBを対象外とし、ビルド不要の静的JavaScript構成でGitHub Pagesから直接配信する方針へ再設計している。
+
+- Static requirements: [`yomu-pace/REQUIREMENTS_STATIC.md`](./yomu-pace/REQUIREMENTS_STATIC.md)
+- Static design: [`yomu-pace/DESIGN_STATIC.md`](./yomu-pace/DESIGN_STATIC.md)
+- Previous requirements: [`yomu-pace/REQUIREMENTS.md`](./yomu-pace/REQUIREMENTS.md)
+- Previous design: [`yomu-pace/DESIGN.md`](./yomu-pace/DESIGN.md)
