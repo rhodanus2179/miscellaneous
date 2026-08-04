@@ -1,0 +1,12 @@
+{
+  "name": "Yomu Pace",
+  "short_name": "Yomu Pace",
+  "description": "日本語の意味のまとまりを保ちながら一定のペースで読む、端末内完結型の読書支援アプリ",
+  "lang": "ja",
+  "start_url": "./#/library",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f2e9",
+  "theme_color": "#1d2b24",
+  "icons": []
+}
