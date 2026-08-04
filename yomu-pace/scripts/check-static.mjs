@@ -47,8 +47,8 @@ const runtimeFiles = jsFiles.filter((file) => !file.includes('/tests/') && !file
 for (const file of runtimeFiles) {
   const source = await readFile(file, 'utf8');
   const importPatterns = [
-    /import\s+(?:[^'\"]+\s+from\s+)?['\"]([^'\"]+)['\"]/gu,
-    /import\(\s*['\"]([^'\"]+)['\"]\s*\)/gu,
+    /import\s+(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"]/gu,
+    /import\(\s*['"]([^'"]+)['"]\s*\)/gu,
   ];
   for (const pattern of importPatterns) {
     for (const match of source.matchAll(pattern)) {
@@ -58,7 +58,7 @@ for (const file of runtimeFiles) {
     }
   }
 
-  for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['\"]([^'\"]+)['\"]/gu)) {
+  for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/gu)) {
     const target = resolve(dirname(file), match[2]);
     const available = await exportedNames(target);
     for (const item of match[1].split(',')) {
@@ -73,7 +73,7 @@ for (const file of runtimeFiles) {
 for (const file of runtimeFiles) {
   const source = await readFile(file, 'utf8');
   if (/https?:\/\//u.test(source) && !file.endsWith('vendor/budoux/budoux.js')) {
-    const allowed = source.replace(/https?:\/\/example\.com[^'\"`\s)]*/gu, '');
+    const allowed = source.replace(/https?:\/\/example\.com[^'"`\s)]*/gu, '');
     if (/https?:\/\//u.test(allowed)) throw new Error(`External runtime URL in ${file}`);
   }
 }
