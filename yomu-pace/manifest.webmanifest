@@ -1,0 +1,19 @@
+{
+  "name": "Yomu Pace",
+  "short_name": "Yomu Pace",
+  "description": "日本語を意味のまとまりで提示する読書ペースメーカー",
+  "start_url": "./#/library",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1b17",
+  "theme_color": "#0d1b17",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
