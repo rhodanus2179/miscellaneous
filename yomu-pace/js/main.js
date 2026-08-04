@@ -1,4 +1,5 @@
-import { initializeApp, toast } from './app.js';
+import { initializeApp } from './app.js';
+import { toast } from './ui.js';
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return;
@@ -17,8 +18,26 @@ async function registerServiceWorker() {
   }
 }
 
+function showStartupError(error) {
+  console.error('Yomu Pace startup failed', error);
+  const app = document.querySelector('#app');
+  if (!app) return;
+  const section = document.createElement('section');
+  section.className = 'screen narrow';
+  const heading = document.createElement('h1');
+  heading.textContent = 'アプリを起動できませんでした';
+  const message = document.createElement('p');
+  message.textContent = 'ページを再読み込みしてください。改善しない場合は、ブラウザのサイトデータを削除して再度お試しください。';
+  section.append(heading, message);
+  app.replaceChildren(section);
+}
+
 window.addEventListener('error', (event) => console.error('Unhandled error', event.error));
 window.addEventListener('unhandledrejection', (event) => console.error('Unhandled rejection', event.reason));
 
-await initializeApp();
-void registerServiceWorker();
+try {
+  await initializeApp();
+  void registerServiceWorker();
+} catch (error) {
+  showStartupError(error);
+}
