@@ -30,3 +30,11 @@ v0.1は、文章貼り付け、TXT、Markdownに対応する、ビルド不要�
 - Static design: [`yomu-pace/DESIGN_STATIC.md`](./yomu-pace/DESIGN_STATIC.md)
 - Previous requirements: [`yomu-pace/REQUIREMENTS.md`](./yomu-pace/REQUIREMENTS.md)
 - Previous design: [`yomu-pace/DESIGN.md`](./yomu-pace/DESIGN.md)
+
+### Nano Workbench
+
+Claude Webに近いチャットUIで、Chrome内蔵のGemini Nanoを利用する、画像対応・端末内完結型のローカルAIワークベンチ。コンテキストウィンドウ、使用量、画像のセッション投入状態、圧縮・再構築の過程を可視化する。
+
+- App: [`nano-workbench/`](./nano-workbench/)
+- README: [`nano-workbench/README.md`](./nano-workbench/README.md)
+- Design: [`nano-workbench/DESIGN.md`](./nano-workbench/DESIGN.md)

@@ -1,0 +1,28 @@
+name: Nano Workbench static checks
+
+on:
+  pull_request:
+    paths:
+      - 'nano-workbench/**'
+      - '.github/workflows/nano-workbench-static.yml'
+  push:
+    paths:
+      - 'nano-workbench/**'
+      - '.github/workflows/nano-workbench-static.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests
+        run: node --test nano-workbench/tests/core.test.mjs
+      - name: Static imports
+        run: node nano-workbench/scripts/check-static-imports.mjs
+      - name: Service worker assets
+        run: node nano-workbench/scripts/check-sw-assets.mjs
+      - name: No runtime external URLs
+        run: node nano-workbench/scripts/check-external-urls.mjs
