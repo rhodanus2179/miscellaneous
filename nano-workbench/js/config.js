@@ -1,6 +1,6 @@
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 export const DB_NAME = 'nano-workbench';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const SYSTEM_PROMPT = `あなたは端末内で動作する対話アシスタントです。
 ユーザーの言語に合わせ、根拠のない断定を避けてください。
 画像内の細かい文字、数値、固有名詞には不確実性を明示してください。
@@ -25,6 +25,15 @@ export const DEFAULT_SETTINGS = {
   textTimeoutMs: 6 * 60 * 1000,
   imageTimeoutMs: 10 * 60 * 1000,
   debug: false,
+};
+
+export const WORKSPACE_LIMITS = {
+  projectInstructionsRecommendedChars: 1500,
+  projectInstructionsHardChars: 4000,
+  maxMemoryItems: 12,
+  maxMemoryTextChars: 3000,
+  maxClarificationQuestions: 3,
+  initialContextWarningRatio: 0.35,
 };
 
 export const IMAGE_LIMITS = {
