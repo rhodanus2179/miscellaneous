@@ -1,8 +1,14 @@
-const CACHE = 'nano-workbench-v0.1.0';
+const CACHE = 'nano-workbench-v0.2.0';
 const ASSETS = [
-  './', './index.html', './styles.css', './manifest.webmanifest', './icon.svg',
+  './', './index.html', './styles.css', './styles-v02.css', './manifest.webmanifest', './icon.svg',
   './js/main.js', './js/app.js', './js/config.js', './js/utils.js', './js/storage.js',
   './js/markdown.js', './js/images.js', './js/ai.js',
+  './js/workspace/index.js', './js/workspace/state.js', './js/workspace/context.js',
+  './js/workspace/projects.js', './js/workspace/memories.js', './js/workspace/styles.js',
+  './js/workspace/skills.js', './js/workspace/project-ui.js', './js/workspace/memory-ui.js',
+  './js/workspace/style-skill-ui.js', './js/workspace/harness-ui.js', './js/workspace/slash-ui.js',
+  './js/harness/schemas.js', './js/harness/clarification.js', './js/harness/prompt-envelope.js',
+  './js/harness/slash-commands.js',
 ];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS))));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))));
