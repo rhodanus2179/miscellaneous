@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
       - name: Unit tests
-        run: node --test nano-workbench/tests/core.test.mjs
+        run: node --test nano-workbench/tests/*.test.mjs
       - name: Static imports
         run: node nano-workbench/scripts/check-static-imports.mjs
       - name: Service worker assets
