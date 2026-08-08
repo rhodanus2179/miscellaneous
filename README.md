@@ -37,4 +37,5 @@ Claude Webに近いチャットUIで、Chrome内蔵のGemini Nanoを利用する
 
 - App: [`nano-workbench/`](./nano-workbench/)
 - README: [`nano-workbench/README.md`](./nano-workbench/README.md)
-- Design: [`nano-workbench/DESIGN.md`](./nano-workbench/DESIGN.md)
+- v0.1 Design: [`nano-workbench/DESIGN.md`](./nano-workbench/DESIGN.md)
+- v0.2 Design: [`nano-workbench/DESIGN_v0.2.md`](./nano-workbench/DESIGN_v0.2.md)
