@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja" data-theme="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f5f0">
+  <meta name="description" content="Chrome Built-in AI (Gemini Nano) を使う端末内完結型チャットワークベンチ">
+  <title>Nano Workbench</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="fatal-error" class="fatal-error" hidden></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">N</span><div><strong>Nano Workbench</strong><span id="app-version"></span></div></div>
+      <div class="topbar-center">
+        <span id="ai-status" class="status-pill" data-tone="muted">● 確認中</span>
+        <button id="prepare-ai" class="soft-button" type="button">AIを準備</button>
+      </div>
+      <div class="topbar-actions">
+        <div class="header-context"><span>Context</span><strong id="header-context">— / —</strong></div>
+        <button id="inspector-toggle" class="icon-button inspector-toggle" type="button" aria-label="インスペクター">◫</button>
+        <button id="settings-button" class="icon-button" type="button" aria-label="設定">⚙</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新しい会話</button>
+      <label class="search-box"><span>⌕</span><input id="conversation-search" type="search" placeholder="会話を検索" autocomplete="off"></label>
+      <div id="conversation-list" class="conversation-list" aria-label="会話一覧"></div>
+      <div class="sidebar-footer">
+        <div><span>Local storage</span><strong id="storage-value">—</strong></div>
+        <div class="privacy-note">会話・画像はブラウザ内に保存</div>
+      </div>
+    </aside>
+
+    <main class="chat-column">
+      <section id="chat-messages" class="chat-messages" aria-live="polite"></section>
+      <section id="composer" class="composer" aria-label="メッセージ入力">
+        <div id="draft-attachments" class="draft-attachments"></div>
+        <div class="composer-row">
+          <button id="attach-button" class="attach-button" type="button" title="画像を添付" aria-label="画像を添付">＋</button>
+          <textarea id="composer-input" rows="1" placeholder="Nanoにメッセージを送る…" aria-label="メッセージ"></textarea>
+          <div class="composer-submit">
+            <button id="send-button" class="send-button" type="button" aria-label="送信">↑</button>
+            <button id="stop-button" class="stop-button" type="button" aria-label="生成停止" hidden>■</button>
+          </div>
+        </div>
+        <div class="composer-meta"><span id="composer-context">AIを準備するとコンテキスト使用量を表示します。</span><span><span id="attach-count"></span> <span id="generation-state"></span> <span id="generation-elapsed"></span></span></div>
+        <input id="image-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+      </section>
+    </main>
+
+    <aside class="inspector">
+      <div class="inspector-tabs" role="tablist">
+        <button class="inspector-tab active" data-tab="context" type="button">Context</button>
+        <button class="inspector-tab" data-tab="attachments" type="button">Images</button>
+        <button class="inspector-tab" data-tab="debug" type="button">Debug</button>
+      </div>
+      <section class="inspector-panel" data-panel="context">
+        <div class="context-hero"><div><span>使用率</span><strong id="context-percent">—</strong></div><progress id="context-meter" max="1" value="0" aria-label="コンテキスト使用量"></progress><p id="context-hint">実行環境から取得した正式値を表示します。</p></div>
+        <dl class="stat-list">
+          <div><dt>現在</dt><dd id="context-usage">—</dd></div>
+          <div><dt>最大</dt><dd id="context-window">—</dd></div>
+          <div><dt>残り</dt><dd id="context-remaining">—</dd></div>
+          <div><dt>次の入力</dt><dd id="measured-next">—</dd></div>
+          <div><dt>送信直前見込み</dt><dd id="projected-context">—</dd></div>
+        </dl>
+        <button id="compact-button" class="wide-button" type="button">会話を圧縮して再構築</button>
+        <div class="info-box"><strong>正式値と推定値</strong><p>現在値・最大値・次の入力はChrome Prompt APIから取得します。System／履歴／画像などの厳密な内訳はAPIから取得できません。</p></div>
+        <div class="capability-card"><h3>Runtime</h3><dl class="stat-list compact"><div><dt>availability</dt><dd id="capability-value">—</dd></div><div><dt>download</dt><dd id="download-value">—</dd></div></dl><p>診断: <code>chrome://on-device-internals</code></p></div>
+      </section>
+      <section class="inspector-panel" data-panel="attachments" hidden><div id="attachment-list" class="attachment-list"></div></section>
+      <section class="inspector-panel" data-panel="debug" hidden><div id="debug-info"></div><div class="debug-actions"><button id="export-logs" class="wide-button" type="button">ログをJSON出力</button></div><div id="debug-log" class="debug-log"></div></section>
+    </aside>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <dialog id="settings-dialog" class="dialog settings-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Settings</h2>
+    <label>テーマ<select id="setting-theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <label>安全余裕<select id="setting-margin"><option value="0.10">10%</option><option value="0.15">15%</option><option value="0.20">20%</option></select></label>
+    <label class="check-label"><input id="setting-debug" type="checkbox"> デバッグ表示を有効にする</label>
+    <div class="dialog-section"><h3>Data</h3><div class="dialog-buttons"><button id="export-conversation" type="button">現在の会話をJSON出力</button><button id="import-conversation" type="button">会話をインポート</button></div><input id="import-input" type="file" accept="application/json" hidden></div>
+    <div class="info-box"><strong>端末内データ</strong><p>会話、画像、設定、ログはこのChromeプロファイルのIndexedDBに保存されます。ブラウザデータを削除すると失われます。</p></div>
+    <button id="save-settings" class="primary-button" type="button">保存</button>
+  </dialog>
+
+  <dialog id="conversation-actions" class="dialog compact-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Conversation</h2>
+    <button id="pin-conversation" type="button">ピン留め切替</button>
+    <button id="rename-conversation" type="button">名前を変更</button>
+    <button id="delete-conversation" class="danger-button" type="button">削除</button>
+  </dialog>
+
+  <dialog id="image-dialog" class="image-dialog"><button id="image-dialog-close" class="dialog-close" type="button">×</button><div id="image-dialog-title" class="image-dialog-title"></div><img id="image-dialog-img" alt="添付画像プレビュー"></dialog>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
