@@ -18,7 +18,7 @@ function removeHarnessTransientUi({ keepPending = false } = {}) {
   if (!keepPending) $('#workspace-harness-pending')?.remove();
 }
 
-function setHarnessComposerLocked(locked, run = null, { restoreText = false } = {}) {
+function setHarnessComposerLocked(locked, run = null, { restoreText = false, placeholder = null } = {}) {
   const composer = $('#composer');
   const input = $('#composer-input');
   const send = $('#send-button');
@@ -35,10 +35,12 @@ function setHarnessComposerLocked(locked, run = null, { restoreText = false } = 
     if (locked) {
       if (!input.dataset.harnessPlaceholder) input.dataset.harnessPlaceholder = input.placeholder || '';
       input.value = '';
-      input.placeholder = 'Ask Userで確認中…';
+      input.placeholder = placeholder || 'Ask Userで確認中…';
+      input.readOnly = true;
     } else {
       input.placeholder = input.dataset.harnessPlaceholder || 'Nanoにメッセージを送る…（/ でコマンド）';
       delete input.dataset.harnessPlaceholder;
+      input.readOnly = false;
       if (restoreText && run?.originalUserText) input.value = run.originalUserText;
     }
     input.disabled = locked;
@@ -52,14 +54,15 @@ function setHarnessComposerLocked(locked, run = null, { restoreText = false } = 
   if (slash && locked) slash.hidden = true;
 }
 
-function renderPendingUserMessage(run, skill) {
+function renderPendingUserMessage(run, skill, phase = 'clarification') {
   $('#workspace-harness-pending')?.remove();
   const root = $('#chat-messages');
   if (!root) return;
   const pending = document.createElement('section');
   pending.id = 'workspace-harness-pending';
   pending.className = 'harness-pending-request';
-  pending.innerHTML = `<div class="harness-pending-bubble"><div class="harness-pending-text">${escapeHtml(run.originalUserText)}</div><div class="harness-pending-meta">送信済み · ${escapeHtml(skill.name)}で確認中</div></div>`;
+  const status = phase === 'final' ? '回答を生成中' : '確認中';
+  pending.innerHTML = `<div class="harness-pending-bubble"><div class="harness-pending-text">${escapeHtml(run.originalUserText)}</div><div class="harness-pending-meta">送信済み · ${escapeHtml(skill.name)}で${status}</div></div>`;
   root.append(pending);
   pending.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
@@ -71,10 +74,16 @@ function renderHarnessProgress(run, phase = 'initial') {
   const progress = document.createElement('section');
   progress.id = 'workspace-harness-progress';
   progress.className = 'harness-progress-card';
-  const text = phase === 'after_answer'
-    ? '回答を受け付けました。追加の確認が必要か判断しています…'
-    : '送信を受け付けました。必要な確認事項を整理しています…';
-  progress.innerHTML = `<div class="harness-progress-main"><span class="harness-spinner" aria-hidden="true"></span><div><strong>${escapeHtml(text)}</strong><small>Gemini NanoでAsk Userの判断を実行中です。このままお待ちください。</small></div></div><button type="button" data-harness-cancel>キャンセル</button>`;
+  let text = '送信を受け付けました。必要な確認事項を整理しています…';
+  let detail = 'Gemini NanoでAsk Userの判断を実行中です。このままお待ちください。';
+  if (phase === 'after_answer') {
+    text = '回答を受け付けました。追加の確認が必要か判断しています…';
+  } else if (phase === 'final') {
+    text = '確認が完了しました。回答を生成しています…';
+    detail = '最終回答の準備ができ次第、Nanoの応答を表示します。';
+  }
+  const cancel = phase === 'final' ? '' : '<button type="button" data-harness-cancel>キャンセル</button>';
+  progress.innerHTML = `<div class="harness-progress-main"><span class="harness-spinner" aria-hidden="true"></span><div><strong>${escapeHtml(text)}</strong><small>${escapeHtml(detail)}</small></div></div>${cancel}`;
   root.append(progress);
   progress.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
@@ -276,12 +285,33 @@ async function finalizeHarness(run, skill) {
   plannerAbortController = null;
   run.status = 'ready';
   await saveHarnessRun(run);
-  removeHarnessTransientUi();
+
+  // Keep the composer visibly locked while the main request is handed off. The
+  // original text is staged only synchronously for the existing send handler,
+  // so the user never sees an editable duplicate draft between Ask User and the
+  // final Nano response.
+  removeHarnessTransientUi({ keepPending: true });
   setExecutionSkill(skill, run.clarifications, run.maxQuestionsReached);
-  setHarnessComposerLocked(false, run, { restoreText: true });
+  setHarnessComposerLocked(true, run, { placeholder: 'Nanoが回答を生成しています…' });
+  renderPendingUserMessage(run, skill, 'final');
+  renderHarnessProgress(run, 'final');
+
+  const input = $('#composer-input');
+  const send = $('#send-button');
+  if (!input || !send) {
+    setHarnessComposerLocked(false, run, { restoreText: true });
+    removeHarnessTransientUi();
+    toast('最終回答の送信準備に失敗しました。', 'error');
+    return;
+  }
+
+  input.value = run.originalUserText;
   ws.bypassHarness = true;
-  $('#send-button')?.click();
+  send.disabled = false;
+  send.click();
+  send.disabled = true;
   ws.bypassHarness = false;
+  input.value = '';
 }
 
 export async function interceptSend(event) {
