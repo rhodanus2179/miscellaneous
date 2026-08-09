@@ -15,6 +15,28 @@ test('invalid selection decision safely falls back to respond', () => {
   assert.equal(normalizeClarificationDecision({ action: 'ask_user', question: 'Q?', inputType: 'single_select', options: ['one'] }).action, 'respond');
 });
 
+test('selection Ask User always appends one canonical Other choice', () => {
+  const result = normalizeClarificationDecision({
+    action: 'ask_user',
+    question: 'どこで使いますか？',
+    inputType: 'single_select',
+    options: ['仕事場', '自宅', '公共スペース', '自然環境'],
+  });
+  assert.deepEqual(result.options, ['仕事場', '自宅', '公共スペース', '自然環境', 'その他']);
+});
+
+test('leaked option text is removed from question and malformed Other is normalized', () => {
+  const result = normalizeClarificationDecision({
+    action: 'ask_user',
+    question: '環境について考える際、どのような環境を想定していますか？ 選択肢： 1. 仕事場 2. 自宅 3. 都市部の公共スペース 4. 自然環境 5. その他（具体的に：free_text）',
+    inputType: 'single_select',
+    options: ['1. 仕事場', '2. 自宅', '3. 都市部の公共スペース（公園、広場など）', 'その他（具体的に：free_text）'],
+  });
+  assert.equal(result.question, '環境について考える際、どのような環境を想定していますか？');
+  assert.deepEqual(result.options, ['仕事場', '自宅', '都市部の公共スペース（公園、広場など）', 'その他']);
+  assert.ok(!result.question.includes('free_text'));
+});
+
 test('Other choices are recognized for free-text expansion', () => {
   assert.equal(isOtherOption('その他'), true);
   assert.equal(isOtherOption('その他（自由入力）'), true);
