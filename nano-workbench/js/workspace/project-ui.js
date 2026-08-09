@@ -1,7 +1,7 @@
 import { WORKSPACE_LIMITS } from '../config.js';
 import { put, listConversations } from '../storage.js';
 import { formatDateTime } from '../utils.js';
-import { newProject, updateProject, listProjects, deleteProject, moveConversationToProject } from './projects.js';
+import { newProject, updateProject, listProjects, deleteProject, moveConversationToProject, sortProjectsByActivity } from './projects.js';
 import { memoriesForProject } from './memories.js';
 import { getStyle } from './styles.js';
 import { $, ws, escapeHtml, toast, activeConversation, activeConversationId, activeProject, saveWorkspaceSelection, emit, record } from './state.js';
@@ -9,12 +9,13 @@ import { markWorkspaceDirty } from './context.js';
 
 const NO_PROJECT_KEY = '__none__';
 const projectKey = (projectId) => projectId || NO_PROJECT_KEY;
-const projectIdFromKey = (key) => key === NO_PROJECT_KEY ? null : key;
 
 function projectGroupHtml({ id: projectId, name }, conversations, query, activeConversationIdValue) {
   const key = projectKey(projectId);
-  const items = conversations.filter((c) => (c.projectId ?? null) === (projectId ?? null))
-    .filter((c) => !query || c.title.toLowerCase().includes(query));
+  const items = conversations
+    .filter((c) => (c.projectId ?? null) === (projectId ?? null))
+    .filter((c) => !query || c.title.toLowerCase().includes(query))
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
   if (query && !items.length) return '';
   const collapsed = !query && ws.collapsedProjectKeys.has(key);
   const activeProject = (projectId ?? null) === (ws.activeProjectId ?? null);
@@ -29,7 +30,7 @@ function projectGroupHtml({ id: projectId, name }, conversations, query, activeC
     : '<div class="project-empty-chat">チャットはありません</div>';
   return `<section class="project-group ${activeProject ? 'active' : ''}" data-project-group="${key}">
     <div class="project-group-head">
-      <button class="project-toggle" type="button" data-project-toggle="${key}" aria-label="${collapsed ? '展開' : '折りたたみ'}">${collapsed ? '▸' : '▾'}</button>
+      <button class="project-toggle" type="button" data-project-toggle="${key}" aria-expanded="${!collapsed}" aria-label="${collapsed ? '展開' : '折りたたみ'}">${collapsed ? '▸' : '▾'}</button>
       <button class="project-select" type="button" data-project-select="${projectId || ''}" title="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></button>
       <small>${items.length}</small>
     </div>
@@ -44,7 +45,7 @@ export async function renderProjectList() {
   const query = ($('#conversation-search')?.value || '').trim().toLowerCase();
   const activeId = activeConversationId();
   const groups = [
-    ...ws.projects.map((p) => ({ id: p.id, name: p.name })),
+    ...sortProjectsByActivity(ws.projects, conversations).map((p) => ({ id: p.id, name: p.name })),
     { id: null, name: 'No Project' },
   ];
   root.innerHTML = groups.map((group) => projectGroupHtml(group, conversations, query, activeId)).join('') || '<div class="empty-small">該当する会話はありません。</div>';
