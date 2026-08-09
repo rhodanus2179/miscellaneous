@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { selectMemories, memoryBlock } from '../js/workspace/memories.js';
 import { BUILTIN_STYLES } from '../js/workspace/styles.js';
 import { BUILTIN_SKILLS } from '../js/workspace/skills.js';
+import { sortProjectsByActivity } from '../js/workspace/projects.js';
 
 test('memory selection respects pinned, priority and guards', () => {
   const memories = [
@@ -32,4 +33,16 @@ test('built-in skills include Ask User and non-Ask variants', () => {
   assert.ok(BUILTIN_SKILLS.some((x) => x.clarificationMode === 'auto'));
   assert.ok(BUILTIN_SKILLS.some((x) => x.clarificationMode === 'none'));
   assert.ok(BUILTIN_SKILLS.every((x) => !('source' in x)));
+});
+
+test('projects are ordered by latest conversation activity', () => {
+  const projects = [
+    { id: 'a', name: 'A', updatedAt: 10 },
+    { id: 'b', name: 'B', updatedAt: 20 },
+  ];
+  const conversations = [
+    { id: 'ca', projectId: 'a', updatedAt: 100 },
+    { id: 'cb', projectId: 'b', updatedAt: 30 },
+  ];
+  assert.deepEqual(sortProjectsByActivity(projects, conversations).map((x) => x.id), ['a', 'b']);
 });
