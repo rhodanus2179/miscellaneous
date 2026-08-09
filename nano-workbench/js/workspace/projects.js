@@ -20,4 +20,18 @@ export async function updateProject(project, patch) {
   return saveProject(next);
 }
 
+export function projectActivityTime(project, conversations = []) {
+  const own = conversations.filter((c) => (c.projectId ?? null) === project.id);
+  const chatActivity = own.reduce((latest, c) => Math.max(latest, Number(c.updatedAt || c.createdAt || 0)), 0);
+  return Math.max(chatActivity, Number(project.updatedAt || project.createdAt || 0));
+}
+
+export function sortProjectsByActivity(projects, conversations = []) {
+  return [...projects].sort((a, b) => {
+    const activityDelta = projectActivityTime(b, conversations) - projectActivityTime(a, conversations);
+    if (activityDelta) return activityDelta;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+  });
+}
+
 export { listProjects, deleteProject, moveConversationToProject };
