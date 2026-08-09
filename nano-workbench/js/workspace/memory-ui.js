@@ -109,6 +109,10 @@ async function saveRawMemory(state) {
 async function openMemoryAction(message) {
   const project = await activeProject();
   if (!project) { toast('Memoryを保存するにはProjectを選択してください。', 'warning'); return; }
+  if (($('#generation-state')?.textContent || '').trim()) {
+    toast('AI処理中はMemory候補の生成を開始できません。処理完了後にもう一度お試しください。', 'warning');
+    return;
+  }
   if (!message?.text?.trim()) { toast('本文のないメッセージはMemory化できません。', 'warning'); return; }
   memoryActionState = {
     projectId: project.id,
@@ -206,13 +210,15 @@ async function startRefinement(mode) {
   if (!memoryActionState) return;
   const source = await get('messages', memoryActionState.sourceMessageId);
   if (!source?.text?.trim()) { toast('元メッセージ本文を取得できません。', 'error'); return; }
+  const action = memoryActionState;
   $('#memory-action-dialog')?.close();
   refinementState = {
-    ...memoryActionState,
+    ...action,
     mode,
     attempt: 0,
     candidate: null,
   };
+  memoryActionState = null;
   const dialog = $('#memory-refinement-dialog');
   $('#memory-refinement-title').textContent = `Memoryを${refinementModeLabel(mode)}`;
   if (!dialog.open) dialog.showModal();
@@ -259,7 +265,7 @@ async function cancelRefinement() {
     });
   }
   refinementState = null;
-  $('#memory-refinement-dialog')?.close();
+  if ($('#memory-refinement-dialog')?.open) $('#memory-refinement-dialog').close();
 }
 
 export async function renderMemoryPanel() {
@@ -348,12 +354,16 @@ export function registerMemoryEvents() {
 
   $('#memory-refinement-adopt')?.addEventListener('click', adoptRefinement);
   $('#memory-refinement-regenerate')?.addEventListener('click', generateRefinement);
-  $('#memory-refinement-raw')?.addEventListener('click', rawFromRefinement);
+  $$('#memory-refinement-raw').forEach((button) => button.addEventListener('click', rawFromRefinement));
   $('#memory-refinement-retry')?.addEventListener('click', generateRefinement);
-  $('#memory-refinement-cancel')?.addEventListener('click', cancelRefinement);
+  $$('#memory-refinement-cancel').forEach((button) => button.addEventListener('click', cancelRefinement));
   $('#memory-refinement-source')?.addEventListener('click', () => refinementState && openSourceMessage(refinementState.sourceMessageId));
   $('#memory-refinement-text')?.addEventListener('input', (e) => {
     $('#memory-refinement-char-count').textContent = `${e.target.value.length.toLocaleString()}字`;
+  });
+  $('#memory-refinement-dialog .dialog-close')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    cancelRefinement();
   });
   $('#memory-refinement-dialog')?.addEventListener('cancel', (e) => {
     e.preventDefault();
