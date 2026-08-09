@@ -20,6 +20,8 @@ export const ws = {
   slashIndex: 0,
   staleHarnessCount: 0,
   rowSyncTimer: null,
+  collapsedProjectKeys: new Set(),
+  pendingNewProjectId: undefined,
 };
 
 export function escapeHtml(text = '') {
