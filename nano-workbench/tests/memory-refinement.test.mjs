@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   normalizeMemoryCandidate,
   buildMemoryRefinementPrompt,
+  clipMemorySource,
 } from '../js/workspace/memory-refinement.js';
 import { memoryTransformLabel } from '../js/workspace/memories.js';
 
@@ -15,8 +16,21 @@ test('memory candidate normalizes category and trims text', () => {
   });
 });
 
+test('memory candidate is bounded to fit the project memory guard', () => {
+  const candidate = normalizeMemoryCandidate({ category: 'premise', text: 'x'.repeat(5000) });
+  assert.equal(candidate.text.length, 2800);
+});
+
 test('empty memory candidate is rejected', () => {
   assert.throws(() => normalizeMemoryCandidate({ category: 'other', text: '   ' }), /空/);
+});
+
+test('long source context keeps head and tail without unbounded prompt growth', () => {
+  const clipped = clipMemorySource(`HEAD${'x'.repeat(200)}TAIL`, 100);
+  assert.ok(clipped.length <= 100);
+  assert.match(clipped, /^HEAD/);
+  assert.match(clipped, /TAIL$/);
+  assert.match(clipped, /中間部を省略/);
 });
 
 test('refine prompt preserves facts and uses parent only for reference resolution', () => {
