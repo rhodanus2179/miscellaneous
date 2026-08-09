@@ -1,9 +1,9 @@
-# Nano Workbench v0.2.0 実機チェック — Workspace & Harness
+# Nano Workbench v0.2.1 実機チェック — Workspace, Harness & Memory Refinement
 
 対象: Built-in AI対応のデスクトップ版Chrome
 
 ## Migration / Regression
-- [ ] v0.1データを保持したまま起動できる
+- [ ] v0.1 / v0.2データを保持したまま起動できる
 - [ ] 既存ConversationがNo Projectとして表示される
 - [ ] 既存のテキスト応答が動く
 - [ ] 既存の画像解説が動く
@@ -28,6 +28,27 @@
 - [ ] Contextタブに投入Memory件数が表示される
 - [ ] 12件 / 3000文字guardが機能する
 - [ ] Memory変更後のRebuildで回答へ反映される
+
+## Memory Refinement
+- [ ] MessageのMemoryボタンで「そのまま保存 / Memory用に整える / 要約する / 詳細設定して追加」が表示される
+- [ ] 「そのまま保存」は元message本文をそのままMemory.textへ保存する
+- [ ] 「Memory用に整える」は短命なPrompt API Sessionで候補を生成する
+- [ ] 「要約する」は整形より明確に短い候補を生成する
+- [ ] 整形・要約候補を生成しただけではProject Memoryへ保存されない
+- [ ] 候補画面でCategoryを変更できる
+- [ ] 候補本文を手修正してから採用できる
+- [ ] 採用した整形版はtransform=refineとして扱われる
+- [ ] 採用した要約版はtransform=summarizeとして扱われる
+- [ ] 再生成すると同じmodeで別候補を生成でき、試行回数が増える
+- [ ] 候補確認後でも「原文をそのまま保存」を選べる
+- [ ] 「原文を見る」でsourceMessageIdから元messageを表示する
+- [ ] 整形・要約Memoryには原文本文の複製フィールドを作らない
+- [ ] 元messageを削除してもMemory本文は残り、Sourceだけunavailableになる
+- [ ] AI生成をキャンセルした場合はMemoryが作成されない
+- [ ] AI生成失敗後に再試行または原文保存へ切り替えられる
+- [ ] AI生成中・完了ログに元本文や候補本文そのものが複製保存されない
+- [ ] 既存v0.2 MemoryはLegacyとしてそのまま利用できる
+- [ ] Memory Processorの処理がMain ChatのcontextUsage / 会話履歴へ混入しない
 
 ## Styles
 - [ ] Project default Styleを設定できる
@@ -96,4 +117,6 @@
 - Memory 12件:
 - Planner clone平均:
 - Structured output平均:
+- Memory refine平均:
+- Memory summarize平均:
 - clone 10回後のMain Session:
