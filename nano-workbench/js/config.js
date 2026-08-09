@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.2.1';
 export const DB_NAME = 'nano-workbench';
 export const DB_VERSION = 2;
 export const SYSTEM_PROMPT = `あなたは端末内で動作する対話アシスタントです。
