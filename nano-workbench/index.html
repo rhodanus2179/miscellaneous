@@ -133,6 +133,51 @@
     <button id="save-memory" class="primary-button" type="button">保存</button>
   </dialog>
 
+  <dialog id="memory-action-dialog" class="dialog compact-dialog memory-action-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Project Memory</h2>
+    <p class="memory-action-help">このメッセージをどう保存しますか？</p>
+    <div id="memory-action-preview" class="memory-action-preview"></div>
+    <div class="memory-action-buttons">
+      <button id="memory-action-raw" type="button"><strong>そのまま保存</strong><span>原文をMemory本文として保存</span></button>
+      <button id="memory-action-refine" type="button"><strong>✨ Memory用に整える</strong><span>情報を保ちながら再利用しやすく整理</span></button>
+      <button id="memory-action-summarize" type="button"><strong>✨ 要約する</strong><span>将来必要な情報だけを短く圧縮</span></button>
+      <button id="memory-action-manual" type="button"><strong>詳細設定して追加</strong><span>本文・Category・Priorityを手動編集</span></button>
+    </div>
+  </dialog>
+
+  <dialog id="memory-refinement-dialog" class="dialog memory-refinement-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2 id="memory-refinement-title">Memory候補</h2>
+    <section id="memory-refinement-busy" class="memory-refinement-busy">
+      <span class="harness-spinner" aria-hidden="true"></span>
+      <div><strong id="memory-refinement-busy-label">Memory候補を作成しています…</strong><small>Gemini Nanoの短命Sessionで処理しています。Main Chatのcontextには追加されません。</small></div>
+    </section>
+    <section id="memory-refinement-candidate" hidden>
+      <div class="memory-refinement-head"><strong id="memory-refinement-attempt">整形 · 1回目</strong><button id="memory-refinement-source" type="button">原文を見る</button></div>
+      <label>Category<select id="memory-refinement-category"><option value="premise">前提</option><option value="decision">決定事項</option><option value="preference">ユーザーの希望</option><option value="term">用語・定義</option><option value="other">その他</option></select></label>
+      <label class="field-stack dialog-full"><span>Memory候補 <small id="memory-refinement-char-count">0字</small></span><textarea id="memory-refinement-text" rows="9"></textarea></label>
+      <div class="memory-refinement-actions">
+        <button id="memory-refinement-adopt" class="primary-button" type="button">採用して保存</button>
+        <button id="memory-refinement-regenerate" type="button">再生成</button>
+        <button id="memory-refinement-raw" type="button">原文をそのまま保存</button>
+        <button id="memory-refinement-cancel" type="button">キャンセル</button>
+      </div>
+    </section>
+    <section id="memory-refinement-error" class="memory-refinement-error" hidden>
+      <strong>Memory候補を生成できませんでした。</strong>
+      <p id="memory-refinement-error-text"></p>
+      <div class="memory-refinement-actions"><button id="memory-refinement-retry" type="button">再試行</button><button id="memory-refinement-raw" type="button">原文をそのまま保存</button><button id="memory-refinement-cancel" type="button">キャンセル</button></div>
+    </section>
+  </dialog>
+
+  <dialog id="memory-source-dialog" class="dialog memory-source-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Memory Source</h2>
+    <div id="memory-source-meta" class="memory-source-meta"></div>
+    <pre id="memory-source-text" class="memory-source-text"></pre>
+  </dialog>
+
   <dialog id="style-dialog" class="dialog">
     <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
     <h2>Custom Styles</h2>
