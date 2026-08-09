@@ -1,18 +1,53 @@
 import { WORKSPACE_LIMITS } from '../config.js';
 import { put, listConversations } from '../storage.js';
+import { formatDateTime } from '../utils.js';
 import { newProject, updateProject, listProjects, deleteProject, moveConversationToProject } from './projects.js';
 import { memoriesForProject } from './memories.js';
 import { getStyle } from './styles.js';
-import { $, $$, ws, escapeHtml, toast, activeConversation, activeProject, saveWorkspaceSelection, emit, record } from './state.js';
+import { $, ws, escapeHtml, toast, activeConversation, activeConversationId, activeProject, saveWorkspaceSelection, emit, record } from './state.js';
 import { markWorkspaceDirty } from './context.js';
 
-export function renderProjectList() {
+const NO_PROJECT_KEY = '__none__';
+const projectKey = (projectId) => projectId || NO_PROJECT_KEY;
+const projectIdFromKey = (key) => key === NO_PROJECT_KEY ? null : key;
+
+function projectGroupHtml({ id: projectId, name }, conversations, query, activeConversationIdValue) {
+  const key = projectKey(projectId);
+  const items = conversations.filter((c) => (c.projectId ?? null) === (projectId ?? null))
+    .filter((c) => !query || c.title.toLowerCase().includes(query));
+  if (query && !items.length) return '';
+  const collapsed = !query && ws.collapsedProjectKeys.has(key);
+  const activeProject = (projectId ?? null) === (ws.activeProjectId ?? null);
+  const chats = items.length
+    ? items.map((c) => `<div class="project-chat-item ${c.id === activeConversationIdValue ? 'active' : ''}">
+        <button class="project-chat-row" type="button" data-project-chat="${c.id}" data-chat-project="${projectId || ''}" title="${escapeHtml(c.title)}">
+          <span class="project-chat-title">${escapeHtml(c.title)}</span>
+          <span class="project-chat-time">${formatDateTime(c.updatedAt)}</span>
+        </button>
+        <button class="project-chat-menu" type="button" data-project-chat-menu="${c.id}" data-chat-project="${projectId || ''}" aria-label="会話メニュー">•••</button>
+      </div>`).join('')
+    : '<div class="project-empty-chat">チャットはありません</div>';
+  return `<section class="project-group ${activeProject ? 'active' : ''}" data-project-group="${key}">
+    <div class="project-group-head">
+      <button class="project-toggle" type="button" data-project-toggle="${key}" aria-label="${collapsed ? '展開' : '折りたたみ'}">${collapsed ? '▸' : '▾'}</button>
+      <button class="project-select" type="button" data-project-select="${projectId || ''}" title="${escapeHtml(name)}"><span>${escapeHtml(name)}</span></button>
+      <small>${items.length}</small>
+    </div>
+    <div class="project-chat-list" ${collapsed ? 'hidden' : ''}>${chats}</div>
+  </section>`;
+}
+
+export async function renderProjectList() {
   const root = $('#project-list');
   if (!root) return;
-  root.innerHTML = [
-    `<button class="project-row ${ws.activeProjectId == null ? 'active' : ''}" data-project-id=""><span class="project-dot">○</span><span>No Project</span><small id="project-count-none"></small></button>`,
-    ...ws.projects.map((p) => `<button class="project-row ${p.id === ws.activeProjectId ? 'active' : ''}" data-project-id="${p.id}"><span class="project-dot">▸</span><span>${escapeHtml(p.name)}</span><small data-project-count="${p.id}"></small></button>`),
-  ].join('');
+  const conversations = await listConversations();
+  const query = ($('#conversation-search')?.value || '').trim().toLowerCase();
+  const activeId = activeConversationId();
+  const groups = [
+    ...ws.projects.map((p) => ({ id: p.id, name: p.name })),
+    { id: null, name: 'No Project' },
+  ];
+  root.innerHTML = groups.map((group) => projectGroupHtml(group, conversations, query, activeId)).join('') || '<div class="empty-small">該当する会話はありません。</div>';
   const name = ws.activeProjectId ? ws.projects.find((p) => p.id === ws.activeProjectId)?.name || 'Project' : 'No Project';
   if ($('#active-project-label')) $('#active-project-label').textContent = name;
   if ($('#composer-project')) $('#composer-project').textContent = name;
@@ -21,44 +56,73 @@ export function renderProjectList() {
 export function syncConversationRows({ ensureActive = false } = {}) {
   clearTimeout(ws.rowSyncTimer);
   ws.rowSyncTimer = setTimeout(async () => {
-    const conversations = await listConversations();
+    let conversations = await listConversations();
     const projectIds = new Set(ws.projects.map((p) => p.id));
+    let repaired = false;
     for (const conversation of conversations) {
       if (conversation.projectId && !projectIds.has(conversation.projectId)) {
         conversation.projectId = null;
         conversation.updatedAt = Date.now();
         await put('conversations', conversation);
+        repaired = true;
       }
     }
-    const map = new Map(conversations.map((c) => [c.id, c]));
-    const counts = new Map();
-    for (const c of conversations) counts.set(c.projectId ?? '', (counts.get(c.projectId ?? '') || 0) + 1);
-    if ($('#project-count-none')) $('#project-count-none').textContent = counts.get('') || 0;
-    $$('[data-project-count]').forEach((n) => { n.textContent = counts.get(n.dataset.projectCount) || 0; });
-    let firstVisible = null;
-    let activeVisible = false;
-    for (const row of $$('.conversation-row')) {
-      const conv = map.get(row.dataset.id);
-      const visible = !!conv && (conv.projectId ?? null) === (ws.activeProjectId ?? null);
-      row.hidden = !visible;
-      if (visible && !firstVisible) firstVisible = row;
-      if (visible && row.classList.contains('active')) activeVisible = true;
+    if (repaired) conversations = await listConversations();
+
+    if (ws.pendingNewProjectId !== undefined) {
+      const activeId = activeConversationId();
+      const created = conversations.find((c) => c.id === activeId);
+      if (created) {
+        const target = ws.pendingNewProjectId ?? null;
+        if ((created.projectId ?? null) !== target) {
+          created.projectId = target;
+          created.updatedAt = Date.now();
+          await put('conversations', created);
+          conversations = await listConversations();
+        }
+        ws.pendingNewProjectId = undefined;
+      }
     }
-    if (ensureActive && !activeVisible) {
-      if (firstVisible) firstVisible.querySelector('.conversation-open')?.click();
-      else $('#new-chat')?.click();
+
+    for (const row of document.querySelectorAll('#conversation-list .conversation-row')) row.hidden = false;
+
+    if (ensureActive) {
+      const activeId = activeConversationId();
+      const active = conversations.find((c) => c.id === activeId);
+      const matches = active && (active.projectId ?? null) === (ws.activeProjectId ?? null);
+      if (!matches) {
+        const first = conversations.find((c) => (c.projectId ?? null) === (ws.activeProjectId ?? null));
+        if (first) document.querySelector(`#conversation-list .conversation-row[data-id="${first.id}"] .conversation-open`)?.click();
+        else {
+          ws.pendingNewProjectId = ws.activeProjectId ?? null;
+          $('#new-chat')?.click();
+        }
+      }
     }
+    await renderProjectList();
     emit('nano:workspace-selection-changed');
   }, 0);
 }
 
-export async function selectProject(projectId) {
+export async function selectProject(projectId, { ensureActive = true } = {}) {
   emit('nano:workspace-cancel-harness', { reason: 'PROJECT_SWITCH' });
   ws.activeProjectId = projectId || null;
+  ws.collapsedProjectKeys.delete(projectKey(ws.activeProjectId));
   await saveWorkspaceSelection();
-  renderProjectList();
-  syncConversationRows({ ensureActive: true });
+  await renderProjectList();
+  syncConversationRows({ ensureActive });
   await record('project_selected', { projectId: ws.activeProjectId });
+}
+
+async function openTreeConversation(conversationId, projectId) {
+  if ((projectId ?? null) !== (ws.activeProjectId ?? null)) await selectProject(projectId, { ensureActive: false });
+  document.querySelector(`#conversation-list .conversation-row[data-id="${conversationId}"] .conversation-open`)?.click();
+  queueMicrotask(renderProjectList);
+}
+
+async function openTreeConversationMenu(conversationId, projectId) {
+  if ((projectId ?? null) !== (ws.activeProjectId ?? null)) await selectProject(projectId, { ensureActive: false });
+  document.querySelector(`#conversation-list .conversation-row[data-id="${conversationId}"] .conversation-menu`)?.click();
 }
 
 async function createProjectUi() {
@@ -105,7 +169,7 @@ export async function renderProjectPanel() {
         defaultStyleId: $('#project-default-style').value,
       });
       ws.projects = await listProjects();
-      renderProjectList();
+      await renderProjectList();
       markWorkspaceDirty();
       await record('project_updated', { projectId: updated.id });
       toast('Project設定を保存しました。', 'success');
@@ -145,9 +209,29 @@ export async function moveCurrentConversation() {
 
 export function registerProjectEvents() {
   $('#new-project')?.addEventListener('click', createProjectUi);
-  $('#project-list')?.addEventListener('click', (e) => {
-    const row = e.target.closest('[data-project-id]');
-    if (row) selectProject(row.dataset.projectId || null);
+  $('#new-chat')?.addEventListener('click', () => { ws.pendingNewProjectId = ws.activeProjectId ?? null; }, true);
+  $('#conversation-search')?.addEventListener('input', () => renderProjectList());
+  $('#project-list')?.addEventListener('click', async (e) => {
+    const toggle = e.target.closest('[data-project-toggle]');
+    if (toggle) {
+      const key = toggle.dataset.projectToggle;
+      if (ws.collapsedProjectKeys.has(key)) ws.collapsedProjectKeys.delete(key);
+      else ws.collapsedProjectKeys.add(key);
+      await renderProjectList();
+      return;
+    }
+    const chatMenu = e.target.closest('[data-project-chat-menu]');
+    if (chatMenu) {
+      await openTreeConversationMenu(chatMenu.dataset.projectChatMenu, chatMenu.dataset.chatProject || null);
+      return;
+    }
+    const chat = e.target.closest('[data-project-chat]');
+    if (chat) {
+      await openTreeConversation(chat.dataset.projectChat, chat.dataset.chatProject || null);
+      return;
+    }
+    const project = e.target.closest('[data-project-select]');
+    if (project) await selectProject(project.dataset.projectSelect || null);
   });
   $('#move-conversation')?.addEventListener('click', moveCurrentConversation);
   $('#conversation-list')?.addEventListener('click', async (e) => {
