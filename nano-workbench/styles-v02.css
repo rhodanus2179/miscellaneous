@@ -18,6 +18,7 @@
 .project-select span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .project-group-head small { color:var(--muted); font-size:9px; text-align:center; }
 .project-chat-list { display:flex; flex-direction:column; gap:1px; padding:1px 0 4px 19px; }
+.project-chat-list[hidden] { display:none!important; }
 .project-chat-item { display:grid; grid-template-columns:minmax(0,1fr) 28px; border-radius:8px; }
 .project-chat-item:hover,.project-chat-item.active { background:color-mix(in srgb,var(--panel-2) 78%,transparent); }
 .project-chat-item.active { box-shadow:inset 2px 0 var(--accent); }
