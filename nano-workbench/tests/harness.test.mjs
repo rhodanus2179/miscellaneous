@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeClarificationDecision } from '../js/harness/schemas.js';
+import { isOtherOption } from '../js/harness/clarification.js';
 import { buildTaskEnvelope, replacePromptText, extractPromptText } from '../js/harness/prompt-envelope.js';
 import { slashMatches, exactSlashCommand } from '../js/harness/slash-commands.js';
 
@@ -12,6 +13,13 @@ test('respond decision is normalized to empty payload', () => {
 
 test('invalid selection decision safely falls back to respond', () => {
   assert.equal(normalizeClarificationDecision({ action: 'ask_user', question: 'Q?', inputType: 'single_select', options: ['one'] }).action, 'respond');
+});
+
+test('Other choices are recognized for free-text expansion', () => {
+  assert.equal(isOtherOption('その他'), true);
+  assert.equal(isOtherOption('その他（自由入力）'), true);
+  assert.equal(isOtherOption('Other'), true);
+  assert.equal(isOtherOption('実現可能性'), false);
 });
 
 test('task envelope contains skill, request and clarification', () => {
