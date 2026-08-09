@@ -15,6 +15,8 @@
 - [ ] Conversationを別Project / No Projectへ移動できる
 - [ ] Project名・Description・Instructionsを保存できる
 - [ ] Project削除後も所属ConversationがNo Projectに残る
+- [ ] Projectの折りたたみ / 展開が動く
+- [ ] 所属Chatを更新すると、そのProjectが活動順で上へ移動する
 - [ ] Instructions変更後にWorkspace changedが表示される
 - [ ] Rebuild sessionで変更が反映される
 
@@ -43,12 +45,19 @@
 
 ## Ask User Harness
 - [ ] Document Reviewで情報十分な依頼は質問せず実行する
+- [ ] Ask User送信直後に入力欄が空になり、送信・編集がロックされる
+- [ ] Ask User送信直後に仮のUserメッセージが「送信済み」としてチャット欄へ出る
+- [ ] 最初の質問待ちに「必要な確認事項を整理しています…」が表示される
 - [ ] 情報不足時にsingle_selectを表示できる
 - [ ] multi_selectを表示できる
 - [ ] free_textを表示できる
+- [ ] 「その他」を選ぶと自由入力欄が表示される
+- [ ] 回答直後に「回答を受け付けました。追加の確認が必要か判断しています…」が表示される
 - [ ] 回答後にPlannerが再判断する
+- [ ] 2問目 / 3問目の生成中も進行中表示が途切れない
 - [ ] 最大3問でFinal Promptへ進む
 - [ ] 回答せず実行で即Final Promptへ進む
+- [ ] Planner待機中のキャンセルで処理を中断でき、元の入力が復元される
 - [ ] キャンセルできる
 - [ ] Planner失敗時に質問なしで通常実行へfallbackする
 - [ ] Ask User中にProject / Conversation / Skillを変えるとcancelされる
