@@ -1,9 +1,25 @@
 import { WORKSPACE_LIMITS } from '../config.js';
-import { listProjectMemories, saveProjectMemory, deleteProjectMemory } from '../storage.js';
+import { listProjectMemories, saveProjectMemory, deleteProjectMemory, put } from '../storage.js';
 
 export const MEMORY_CATEGORY_LABELS = {
   premise: '前提', decision: '決定事項', preference: 'ユーザーの希望', term: '用語・定義', other: 'その他',
 };
+
+export const MEMORY_TRANSFORM_LABELS = {
+  raw: '原文',
+  refine: '整形',
+  summarize: '要約',
+  manual: '手動編集',
+  legacy: 'Legacy',
+};
+
+export function memoryTransform(memory) {
+  return memory?.transform || 'legacy';
+}
+
+export function memoryTransformLabel(memory) {
+  return MEMORY_TRANSFORM_LABELS[memoryTransform(memory)] || 'Memory';
+}
 
 export function selectMemories(memories, {
   maxItems = WORKSPACE_LIMITS.maxMemoryItems,
@@ -32,5 +48,12 @@ export function memoryBlock(memories) {
 }
 
 export async function memoriesForProject(projectId) { return listProjectMemories(projectId); }
-export async function saveMemory(memory) { return saveProjectMemory(memory); }
+
+export async function saveMemory(memory) {
+  const saved = await saveProjectMemory(memory);
+  const next = { ...saved, transform: memory.transform || saved.transform || 'legacy' };
+  await put('projectMemories', next);
+  return next;
+}
+
 export { deleteProjectMemory as deleteMemory };
