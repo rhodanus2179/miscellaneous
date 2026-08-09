@@ -6,19 +6,92 @@ import { getSkill } from './skills.js';
 import { askPlanner, isOtherOption } from '../harness/clarification.js';
 import { $, $$, ws, escapeHtml, toast, activeConversation, activeConversationId, record, emit } from './state.js';
 
-export async function cancelHarness(reason = 'USER_CANCELLED') {
-  const run = ws.activeHarness;
-  if (!run || ['completed', 'cancelled', 'failed'].includes(run.status)) return;
-  run.status = 'cancelled';
-  run.errorCode = reason;
-  await saveHarnessRun(run).catch(() => {});
-  await record('harness_cancelled', { skillId: run.skillId, errorName: reason });
-  ws.activeHarness = null;
-  $('#workspace-ask-card')?.remove();
-}
+let plannerAbortController = null;
 
 function currentSkillForSend() {
   return ws.selectedSkillId ? ws.skills.find((x) => x.id === ws.selectedSkillId) : null;
+}
+
+function removeHarnessTransientUi({ keepPending = false } = {}) {
+  $('#workspace-ask-card')?.remove();
+  $('#workspace-harness-progress')?.remove();
+  if (!keepPending) $('#workspace-harness-pending')?.remove();
+}
+
+function setHarnessComposerLocked(locked, run = null, { restoreText = false } = {}) {
+  const composer = $('#composer');
+  const input = $('#composer-input');
+  const send = $('#send-button');
+  const attach = $('#attach-button');
+  const imageInput = $('#image-input');
+  const skill = $('#skill-select');
+  const style = $('#style-select');
+  const slash = $('#slash-popup');
+
+  composer?.classList.toggle('harness-active', locked);
+  if (composer) composer.setAttribute('aria-busy', locked ? 'true' : 'false');
+
+  if (input) {
+    if (locked) {
+      if (!input.dataset.harnessPlaceholder) input.dataset.harnessPlaceholder = input.placeholder || '';
+      input.value = '';
+      input.placeholder = 'Ask Userで確認中…';
+    } else {
+      input.placeholder = input.dataset.harnessPlaceholder || 'Nanoにメッセージを送る…（/ でコマンド）';
+      delete input.dataset.harnessPlaceholder;
+      if (restoreText && run?.originalUserText) input.value = run.originalUserText;
+    }
+    input.disabled = locked;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (send) send.disabled = locked;
+  if (attach) attach.disabled = locked;
+  if (imageInput) imageInput.disabled = locked;
+  if (skill) skill.disabled = locked;
+  if (style) style.disabled = locked;
+  if (slash && locked) slash.hidden = true;
+}
+
+function renderPendingUserMessage(run, skill) {
+  $('#workspace-harness-pending')?.remove();
+  const root = $('#chat-messages');
+  if (!root) return;
+  const pending = document.createElement('section');
+  pending.id = 'workspace-harness-pending';
+  pending.className = 'harness-pending-request';
+  pending.innerHTML = `<div class="harness-pending-bubble"><div class="harness-pending-text">${escapeHtml(run.originalUserText)}</div><div class="harness-pending-meta">送信済み · ${escapeHtml(skill.name)}で確認中</div></div>`;
+  root.append(pending);
+  pending.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function renderHarnessProgress(run, phase = 'initial') {
+  $('#workspace-harness-progress')?.remove();
+  const root = $('#chat-messages');
+  if (!root || ws.activeHarness?.id !== run.id) return;
+  const progress = document.createElement('section');
+  progress.id = 'workspace-harness-progress';
+  progress.className = 'harness-progress-card';
+  const text = phase === 'after_answer'
+    ? '回答を受け付けました。追加の確認が必要か判断しています…'
+    : '送信を受け付けました。必要な確認事項を整理しています…';
+  progress.innerHTML = `<div class="harness-progress-main"><span class="harness-spinner" aria-hidden="true"></span><div><strong>${escapeHtml(text)}</strong><small>Gemini NanoでAsk Userの判断を実行中です。このままお待ちください。</small></div></div><button type="button" data-harness-cancel>キャンセル</button>`;
+  root.append(progress);
+  progress.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+export async function cancelHarness(reason = 'USER_CANCELLED') {
+  const run = ws.activeHarness;
+  if (!run || ['completed', 'cancelled', 'failed'].includes(run.status)) return;
+  plannerAbortController?.abort();
+  plannerAbortController = null;
+  run.status = 'cancelled';
+  run.errorCode = reason;
+  const restoreDraft = reason === 'USER_CANCELLED' || reason === 'SKILL_CHANGED';
+  setHarnessComposerLocked(false, run, { restoreText: restoreDraft });
+  removeHarnessTransientUi();
+  await saveHarnessRun(run).catch(() => {});
+  await record('harness_cancelled', { skillId: run.skillId, errorName: reason });
+  if (ws.activeHarness?.id === run.id) ws.activeHarness = null;
 }
 
 function setExecutionSkill(skill, clarifications = [], maxQuestionsReached = false) {
@@ -47,18 +120,27 @@ async function createHarnessRun(skill, text) {
     maxQuestionsReached: false,
   };
   ws.activeHarness = run;
+  setHarnessComposerLocked(true, run);
+  renderPendingUserMessage(run, skill);
+  renderHarnessProgress(run, 'initial');
   await saveHarnessRun(run);
   await record('harness_started', { skillId: skill.id });
   return run;
 }
 
-async function planHarness(run, skill) {
+async function planHarness(run, skill, phase = 'initial') {
+  if (ws.activeHarness?.id !== run.id) return;
   run.status = 'planning';
+  renderHarnessProgress(run, phase);
   await saveHarnessRun(run);
   await record('harness_planner_started', { skillId: skill.id, questionCount: run.questionCount });
   const adapter = getActiveLanguageModel();
   if (!adapter) throw new Error('AI Adapterを利用できません。');
-  const decision = await askPlanner(adapter, skill, run.originalUserText, run.clarifications);
+  plannerAbortController?.abort();
+  plannerAbortController = new AbortController();
+  const decision = await askPlanner(adapter, skill, run.originalUserText, run.clarifications, { signal: plannerAbortController.signal });
+  plannerAbortController = null;
+  if (ws.activeHarness?.id !== run.id || run.status === 'cancelled') return;
   if (decision.action === 'respond' || run.questionCount >= WORKSPACE_LIMITS.maxClarificationQuestions) {
     if (run.questionCount >= WORKSPACE_LIMITS.maxClarificationQuestions) run.maxQuestionsReached = true;
     return finalizeHarness(run, skill);
@@ -98,6 +180,7 @@ function syncOtherInput(card) {
 
 function renderAskUserCard(run) {
   $('#workspace-ask-card')?.remove();
+  $('#workspace-harness-progress')?.remove();
   const turn = run.clarifications.at(-1);
   if (!turn) return;
   const card = document.createElement('section');
@@ -162,18 +245,20 @@ async function answerHarness(skip = false) {
   turn.answer = answer;
   turn.answeredAt = now();
   run.status = 'planning';
+  $('#workspace-ask-card')?.remove();
+  renderHarnessProgress(run, 'after_answer');
   await saveHarnessRun(run);
   await record('harness_answered', { skillId: run.skillId, questionCount: run.questionCount });
-  $('#workspace-ask-card')?.remove();
   if (run.questionCount >= WORKSPACE_LIMITS.maxClarificationQuestions) {
     run.maxQuestionsReached = true;
     return finalizeHarness(run, skill);
   }
-  try { await planHarness(run, skill); }
+  try { await planHarness(run, skill, 'after_answer'); }
   catch (error) { await plannerFailure(run, skill, error); }
 }
 
 async function plannerFailure(run, skill, error) {
+  if (ws.activeHarness?.id !== run.id || run.status === 'cancelled') return;
   run.status = 'failed';
   run.errorCode = error?.code || error?.name || 'PLANNER_FAILED';
   await saveHarnessRun(run).catch(() => {});
@@ -186,10 +271,14 @@ async function plannerFailure(run, skill, error) {
 }
 
 async function finalizeHarness(run, skill) {
+  if (ws.activeHarness?.id !== run.id) return;
+  plannerAbortController?.abort();
+  plannerAbortController = null;
   run.status = 'ready';
   await saveHarnessRun(run);
-  $('#workspace-ask-card')?.remove();
+  removeHarnessTransientUi();
   setExecutionSkill(skill, run.clarifications, run.maxQuestionsReached);
+  setHarnessComposerLocked(false, run, { restoreText: true });
   ws.bypassHarness = true;
   $('#send-button')?.click();
   ws.bypassHarness = false;
@@ -217,13 +306,18 @@ export async function interceptSend(event) {
   }
   event.preventDefault();
   event.stopImmediatePropagation();
-  await cancelHarness('RESTARTED');
+  if (ws.activeHarness) {
+    toast('確認処理中です。現在のAsk Userが完了するまでお待ちください。', 'warning');
+    return;
+  }
   const run = await createHarnessRun(skill, text);
-  try { await planHarness(run, skill); }
+  try { await planHarness(run, skill, 'initial'); }
   catch (error) { await plannerFailure(run, skill, error); }
 }
 
 async function finishHarness(event) {
+  removeHarnessTransientUi();
+  setHarnessComposerLocked(false);
   if (ws.activeHarness) {
     const conversation = await activeConversation();
     const leaf = conversation?.activeLeafId ? await get('messages', conversation.activeLeafId) : null;
@@ -248,7 +342,7 @@ export function registerHarnessEvents() {
   $('#chat-messages')?.addEventListener('click', async (e) => {
     if (e.target.closest('[data-ask-submit]')) return answerHarness(false);
     if (e.target.closest('[data-ask-skip]')) return answerHarness(true);
-    if (e.target.closest('[data-ask-cancel]')) {
+    if (e.target.closest('[data-ask-cancel], [data-harness-cancel]')) {
       await cancelHarness('USER_CANCELLED');
       toast('確認をキャンセルしました。');
     }
@@ -258,6 +352,8 @@ export function registerHarnessEvents() {
 }
 
 export async function reportReloadedHarnesses() {
+  removeHarnessTransientUi();
+  setHarnessComposerLocked(false);
   if (ws.staleHarnessCount) toast('前回の未完了の確認質問は中断されました。必要ならSkillを選び直して実行してください。', 'warning');
   const incomplete = (await listHarnessRuns()).filter((x) => x.errorCode === 'RELOAD_CANCELLED').length;
   if (incomplete) await record('harness_reload_cancelled', { count: incomplete });
