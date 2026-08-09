@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f7f5f0">
-  <meta name="description" content="Chrome Built-in AI (Gemini Nano) を使う端末内完結型チャットワークベンチ">
+  <meta name="description" content="Chrome Built-in AI (Gemini Nano) を使う端末内完結型AIワークベンチ">
   <title>Nano Workbench</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles-v02.css">
 </head>
 <body>
   <div id="fatal-error" class="fatal-error" hidden></div>
@@ -28,22 +29,35 @@
     </header>
 
     <aside class="sidebar">
+      <section class="project-section" aria-label="Projects">
+        <div class="sidebar-section-head"><span>PROJECTS</span><button id="new-project" type="button" title="Projectを作成">＋</button></div>
+        <div id="project-list" class="project-list"></div>
+      </section>
       <button id="new-chat" class="new-chat" type="button"><span>＋</span> 新しい会話</button>
+      <div class="sidebar-section-head chats-head"><span>CHATS · <strong id="active-project-label">No Project</strong></span></div>
       <label class="search-box"><span>⌕</span><input id="conversation-search" type="search" placeholder="会話を検索" autocomplete="off"></label>
       <div id="conversation-list" class="conversation-list" aria-label="会話一覧"></div>
       <div class="sidebar-footer">
         <div><span>Local storage</span><strong id="storage-value">—</strong></div>
-        <div class="privacy-note">会話・画像はブラウザ内に保存</div>
+        <div class="privacy-note">会話・画像・Workspaceはブラウザ内に保存</div>
       </div>
     </aside>
 
     <main class="chat-column">
       <section id="chat-messages" class="chat-messages" aria-live="polite"></section>
       <section id="composer" class="composer" aria-label="メッセージ入力">
+        <div class="workspace-composer-bar">
+          <label>Skill <select id="skill-select" aria-label="Skill"><option value="">None</option></select></label>
+          <label>Style <select id="style-select" aria-label="Style"><option value="">Default</option></select></label>
+          <span class="composer-project-chip">Project: <strong id="composer-project">No Project</strong></span>
+          <span class="effective-style">Effective: <strong id="effective-style-label">Default</strong></span>
+          <span id="workspace-dirty" class="workspace-dirty" hidden>Workspace changed <button id="rebuild-workspace" type="button">Rebuild session</button></span>
+        </div>
+        <div id="slash-popup" class="slash-popup" hidden></div>
         <div id="draft-attachments" class="draft-attachments"></div>
         <div class="composer-row">
           <button id="attach-button" class="attach-button" type="button" title="画像を添付" aria-label="画像を添付">＋</button>
-          <textarea id="composer-input" rows="1" placeholder="Nanoにメッセージを送る…" aria-label="メッセージ"></textarea>
+          <textarea id="composer-input" rows="1" placeholder="Nanoにメッセージを送る…（/ でコマンド）" aria-label="メッセージ"></textarea>
           <div class="composer-submit">
             <button id="send-button" class="send-button" type="button" aria-label="送信">↑</button>
             <button id="stop-button" class="stop-button" type="button" aria-label="生成停止" hidden>■</button>
@@ -58,6 +72,9 @@
       <div class="inspector-tabs" role="tablist">
         <button class="inspector-tab active" data-tab="context" type="button">Context</button>
         <button class="inspector-tab" data-tab="attachments" type="button">Images</button>
+        <button class="inspector-tab" data-tab="project" type="button">Project</button>
+        <button class="inspector-tab" data-tab="memory" type="button">Memory</button>
+        <button class="inspector-tab" data-tab="skills" type="button">Skills</button>
         <button class="inspector-tab" data-tab="debug" type="button">Debug</button>
       </div>
       <section class="inspector-panel" data-panel="context">
@@ -70,10 +87,14 @@
           <div><dt>送信直前見込み</dt><dd id="projected-context">—</dd></div>
         </dl>
         <button id="compact-button" class="wide-button" type="button">会話を圧縮して再構築</button>
+        <div id="workspace-session-inputs" class="capability-card"><p>Session作成後にWorkspace入力を表示します。</p></div>
         <div class="info-box"><strong>正式値と推定値</strong><p>現在値・最大値・次の入力はChrome Prompt APIから取得します。System／履歴／画像などの厳密な内訳はAPIから取得できません。</p></div>
         <div class="capability-card"><h3>Runtime</h3><dl class="stat-list compact"><div><dt>availability</dt><dd id="capability-value">—</dd></div><div><dt>download</dt><dd id="download-value">—</dd></div></dl><p>診断: <code>chrome://on-device-internals</code></p></div>
       </section>
       <section class="inspector-panel" data-panel="attachments" hidden><div id="attachment-list" class="attachment-list"></div></section>
+      <section class="inspector-panel" data-panel="project" hidden><div id="project-panel-content"></div></section>
+      <section class="inspector-panel" data-panel="memory" hidden><div id="memory-panel-content"></div></section>
+      <section class="inspector-panel" data-panel="skills" hidden><div id="skill-panel-content"></div></section>
       <section class="inspector-panel" data-panel="debug" hidden><div id="debug-info"></div><div class="debug-actions"><button id="export-logs" class="wide-button" type="button">ログをJSON出力</button></div><div id="debug-log" class="debug-log"></div></section>
     </aside>
   </div>
@@ -87,7 +108,7 @@
     <label>安全余裕<select id="setting-margin"><option value="0.10">10%</option><option value="0.15">15%</option><option value="0.20">20%</option></select></label>
     <label class="check-label"><input id="setting-debug" type="checkbox"> デバッグ表示を有効にする</label>
     <div class="dialog-section"><h3>Data</h3><div class="dialog-buttons"><button id="export-conversation" type="button">現在の会話をJSON出力</button><button id="import-conversation" type="button">会話をインポート</button></div><input id="import-input" type="file" accept="application/json" hidden></div>
-    <div class="info-box"><strong>端末内データ</strong><p>会話、画像、設定、ログはこのChromeプロファイルのIndexedDBに保存されます。ブラウザデータを削除すると失われます。</p></div>
+    <div class="info-box"><strong>端末内データ</strong><p>会話、画像、Project、Memory、Skill、Style、ログはこのChromeプロファイルのIndexedDBに保存されます。ブラウザデータを削除すると失われます。</p></div>
     <button id="save-settings" class="primary-button" type="button">保存</button>
   </dialog>
 
@@ -96,7 +117,40 @@
     <h2>Conversation</h2>
     <button id="pin-conversation" type="button">ピン留め切替</button>
     <button id="rename-conversation" type="button">名前を変更</button>
+    <label class="field-stack"><span>Move to Project</span><select id="move-conversation-project"><option value="">No Project</option></select></label>
+    <button id="move-conversation" type="button">移動</button>
     <button id="delete-conversation" class="danger-button" type="button">削除</button>
+  </dialog>
+
+  <dialog id="memory-dialog" class="dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Project Memory</h2>
+    <label>Category<select id="memory-category"><option value="premise">前提</option><option value="decision">決定事項</option><option value="preference">ユーザーの希望</option><option value="term">用語・定義</option><option value="other">その他</option></select></label>
+    <label class="field-stack dialog-full"><span>Text</span><textarea id="memory-text" rows="7"></textarea></label>
+    <label>Priority<select id="memory-priority"><option value="1">1 · Low</option><option value="2">2 · Normal</option><option value="3">3 · High</option></select></label>
+    <label class="check-label"><input id="memory-enabled" type="checkbox" checked> Enabled</label>
+    <label class="check-label"><input id="memory-pinned" type="checkbox"> Pinned</label>
+    <button id="save-memory" class="primary-button" type="button">保存</button>
+  </dialog>
+
+  <dialog id="style-dialog" class="dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Custom Styles</h2>
+    <div id="custom-style-list" class="manager-list"></div>
+    <label class="field-stack dialog-full"><span>Name</span><input id="style-name" maxlength="60"></label>
+    <label class="field-stack dialog-full"><span>Instruction</span><textarea id="style-instruction" rows="5"></textarea></label>
+    <div class="dialog-buttons"><button id="save-style" class="primary-button" type="button">保存</button><button id="style-delete" class="danger-button" type="button" hidden>削除</button></div>
+  </dialog>
+
+  <dialog id="skill-dialog" class="dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="閉じる">×</button></form>
+    <h2>Custom Skill</h2>
+    <label class="field-stack dialog-full"><span>Name</span><input id="skill-name" maxlength="80"></label>
+    <label class="field-stack dialog-full"><span>Description</span><textarea id="skill-description" rows="3"></textarea></label>
+    <label class="field-stack dialog-full"><span>Instructions</span><textarea id="skill-instructions" rows="7"></textarea></label>
+    <div class="inline-checks"><label><input id="skill-text" type="checkbox" checked> Text</label><label><input id="skill-image" type="checkbox"> Image</label></div>
+    <label>Clarification<select id="skill-clarification"><option value="none">None</option><option value="auto">Ask User automatically</option></select></label>
+    <div class="dialog-buttons"><button id="save-skill" class="primary-button" type="button">保存</button><button id="skill-dialog-delete" class="danger-button" type="button" hidden>削除</button></div>
   </dialog>
 
   <dialog id="image-dialog" class="image-dialog"><button id="image-dialog-close" class="dialog-close" type="button">×</button><div id="image-dialog-title" class="image-dialog-title"></div><img id="image-dialog-img" alt="添付画像プレビュー"></dialog>

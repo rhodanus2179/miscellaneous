@@ -1,0 +1,61 @@
+/* Nano Workbench v0.2 Workspace & Harness additions */
+.sidebar { gap:0; }
+.new-chat { order:0; }
+.search-box { order:1; }
+.project-section { order:2; flex:1; min-height:0; border-bottom:0; margin:0 0 8px; padding:0; max-height:none; overflow:auto; }
+.sidebar-footer { order:3; }
+.chats-head { display:none; }
+#conversation-list { display:none!important; }
+.sidebar-section-head { display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:9px; letter-spacing:.11em; padding:4px 6px 6px; }
+.sidebar-section-head button { border:0; background:transparent; color:var(--muted); font-size:15px; padding:0 3px; }
+.project-list { display:flex; flex-direction:column; gap:4px; min-height:0; }
+.project-group { border-radius:9px; }
+.project-group.active > .project-group-head { background:var(--panel-2); }
+.project-group-head { display:grid; grid-template-columns:22px minmax(0,1fr) 26px; align-items:center; border-radius:9px; min-height:34px; }
+.project-toggle,.project-select { border:0; background:transparent; color:inherit; }
+.project-toggle { width:22px; padding:7px 2px; color:var(--muted); font-size:10px; }
+.project-select { min-width:0; padding:8px 3px; text-align:left; font-size:12px; font-weight:600; }
+.project-select span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.project-group-head small { color:var(--muted); font-size:9px; text-align:center; }
+.project-chat-list { display:flex; flex-direction:column; gap:1px; padding:1px 0 4px 19px; }
+.project-chat-list[hidden] { display:none!important; }
+.project-chat-item { display:grid; grid-template-columns:minmax(0,1fr) 28px; border-radius:8px; }
+.project-chat-item:hover,.project-chat-item.active { background:color-mix(in srgb,var(--panel-2) 78%,transparent); }
+.project-chat-item.active { box-shadow:inset 2px 0 var(--accent); }
+.project-chat-row,.project-chat-menu { border:0; background:transparent; color:inherit; }
+.project-chat-row { min-width:0; padding:7px 6px 7px 8px; text-align:left; }
+.project-chat-title { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
+.project-chat-time { display:block; color:var(--muted); font-size:9px; margin-top:2px; }
+.project-chat-menu { width:28px; padding:0; color:var(--muted); font-size:11px; }
+.project-empty-chat { color:var(--muted); font-size:9px; padding:6px 8px 8px; }
+.project-row { display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:5px; align-items:center; border:0; border-radius:8px; background:transparent; padding:7px 7px; text-align:left; font-size:12px; }
+.project-row:hover,.project-row.active{background:var(--panel-2)}.project-row.active .project-dot{color:var(--accent)}.project-row span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.project-row small{color:var(--muted);font-size:9px}.project-dot{font-size:9px;color:var(--muted)}
+.workspace-composer-bar { display:flex; align-items:center; gap:7px; padding:1px 4px 7px; min-height:29px; overflow-x:auto; color:var(--muted); font-size:10px; white-space:nowrap; }
+.workspace-composer-bar label { display:flex; gap:4px; align-items:center; }.workspace-composer-bar select{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:3px 5px;font-size:10px;max-width:155px}.composer-project-chip,.effective-style{border-left:1px solid var(--line);padding-left:7px}.workspace-dirty{margin-left:auto;color:var(--warning)}.workspace-dirty button{border:0;background:transparent;color:var(--accent);padding:2px 3px;font-size:10px}
+.composer { position:relative; }
+.composer.harness-active { opacity:.76; }
+.composer.harness-active #composer-input,.composer.harness-active #send-button,.composer.harness-active #attach-button,.composer.harness-active select { cursor:not-allowed; }
+.slash-popup { position:absolute; left:47px; bottom:calc(100% - 5px); width:min(370px,calc(100% - 70px)); padding:5px; border:1px solid var(--line); border-radius:11px; background:var(--panel); box-shadow:var(--shadow); z-index:20; }
+.slash-popup button{width:100%;display:grid;grid-template-columns:90px 1fr;gap:8px;text-align:left;border:0;background:transparent;border-radius:7px;padding:7px 9px;font-size:11px}.slash-popup button.active{background:var(--panel-2)}.slash-popup code{color:var(--accent)}.slash-popup span{color:var(--muted)}
+.inspector-tabs { grid-template-columns:repeat(6,minmax(58px,1fr)); overflow-x:auto; }.inspector-tab{white-space:nowrap}
+.field-stack { display:flex!important; flex-direction:column; align-items:stretch!important; gap:5px; border:0!important; padding:7px 0!important; font-size:11px!important; }.field-stack span{display:flex;justify-content:space-between;color:var(--muted)}.field-stack input,.field-stack textarea,.field-stack select,.dialog-full input,.dialog-full textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px;resize:vertical}.warning-text{color:var(--warning)!important}.workspace-stat{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;padding:8px 0}.workspace-stat strong{color:var(--ink)}
+.memory-list,.skill-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}.memory-card,.skill-card{border:1px solid var(--line);border-radius:10px;padding:9px}.memory-card.disabled{opacity:.58}.memory-card-head{display:flex;justify-content:space-between;color:var(--muted);font-size:9px}.memory-card p,.skill-card p{font-size:11px;line-height:1.45;margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere}.memory-actions,.skill-card-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--muted);font-size:9px}.memory-actions button,.skill-card-actions button{border:0;background:transparent;color:var(--accent);font-size:9px;padding:2px}.skill-card>div:first-child{display:flex;justify-content:space-between;gap:8px}.skill-card strong{font-size:11px}.skill-card span{font-size:9px;color:var(--muted)}
+.harness-pending-request { max-width:790px; margin:8px auto 10px; display:flex; justify-content:flex-end; padding:0 2px; }
+.harness-pending-bubble { max-width:min(78%,650px); border-radius:14px 14px 4px 14px; background:var(--panel-2); border:1px solid var(--line); padding:10px 12px 8px; }
+.harness-pending-text { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; line-height:1.5; }
+.harness-pending-meta { margin-top:5px; color:var(--muted); font-size:9px; text-align:right; }
+.harness-progress-card { max-width:790px; margin:0 auto 18px; border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line)); border-radius:12px; background:color-mix(in srgb,var(--panel) 94%,var(--accent) 6%); padding:11px 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.harness-progress-main { min-width:0; display:flex; align-items:center; gap:10px; }
+.harness-progress-main div { min-width:0; display:flex; flex-direction:column; gap:3px; }
+.harness-progress-main strong { font-size:11px; font-weight:600; }
+.harness-progress-main small { color:var(--muted); font-size:9px; line-height:1.4; }
+.harness-progress-card button { flex:0 0 auto; border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:6px 8px; font-size:9px; }
+.harness-spinner { width:14px; height:14px; flex:0 0 14px; border:2px solid color-mix(in srgb,var(--accent) 24%,var(--line)); border-top-color:var(--accent); border-radius:50%; animation:harness-spin .8s linear infinite; }
+@keyframes harness-spin { to { transform:rotate(360deg); } }
+.ask-user-card { max-width:790px; margin:8px auto 24px; border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line)); border-radius:14px; background:var(--panel); padding:14px 15px; box-shadow:0 8px 24px rgba(40,35,28,.05); }
+.ask-user-kicker{font-size:9px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}.ask-user-card h3{font-family:Georgia,"Yu Mincho",serif;font-size:17px;font-weight:500;margin:8px 0 10px}.ask-user-inputs{display:flex;flex-direction:column;gap:7px}.ask-user-inputs label{border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:11px}.ask-user-inputs textarea{border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:8px;resize:vertical}.ask-choice>span{display:flex;align-items:center;gap:5px}.ask-other-choice{display:flex;flex-direction:column;gap:7px}.ask-other-choice [data-ask-other-text]{width:100%;border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:7px 8px;font-size:11px}.ask-other-choice [data-ask-other-text][hidden]{display:none}.ask-user-actions{display:flex;gap:7px;margin-top:11px}.ask-user-actions button{width:auto;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;font-size:10px}.ask-user-actions .primary-button{background:var(--ink);color:var(--bg)}
+.manager-list{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}.manager-list button{display:flex;justify-content:space-between;border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:6px 8px;font-size:10px}.inline-checks{display:flex;gap:14px;padding:8px 0;font-size:11px}.dialog-full{grid-template-columns:1fr!important}.compact-dialog .field-stack{padding:5px 0!important}.compact-dialog select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px}
+@media (prefers-reduced-motion:reduce){.harness-spinner{animation:none}}
+@media (max-width:1100px){.inspector-tabs{grid-template-columns:repeat(6,70px)}.workspace-composer-bar{max-width:100%}}
+@media (max-width:800px){.workspace-composer-bar{display:none}}
+@media (max-width:600px){body::before{content:"Nano Workbench v0.2.0 はデスクトップ版Chrome向けです."}}

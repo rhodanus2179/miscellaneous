@@ -1,5 +1,14 @@
 import { SESSION_OPTIONS, SYSTEM_PROMPT } from './config.js';
 
+let sessionContextProvider = null;
+let promptTransformProvider = null;
+let activeAdapter = null;
+
+export function setSessionContextProvider(provider) { sessionContextProvider = provider || null; }
+export function setPromptTransformProvider(provider) { promptTransformProvider = provider || null; }
+export function getActiveLanguageModel() { return activeAdapter; }
+export function markWorkspaceContextDirty() { activeAdapter?.markContextDirty(); }
+
 export class AiError extends Error {
   constructor(code, message, cause) {
     super(message, { cause });
@@ -28,11 +37,39 @@ export function promptMessage(text, attachments = []) {
   }];
 }
 
+async function workspaceSystemSuffix() {
+  if (!sessionContextProvider) return '';
+  try {
+    const value = await sessionContextProvider();
+    return typeof value === 'string' ? value.trim() : '';
+  } catch (error) {
+    console.warn('Workspace context provider failed', error);
+    return '';
+  }
+}
+
+async function transformPrompt(message) {
+  if (!promptTransformProvider) return message;
+  try { return await promptTransformProvider(message); }
+  catch (error) { console.warn('Prompt transform failed; using original prompt', error); return message; }
+}
+
+function dispatchRuntime(name, detail = {}) {
+  if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  }
+}
+
 export class LocalLanguageModel {
   constructor({ onDownloadProgress = () => {}, onOverflow = () => {} } = {}) {
     this.session = null;
     this.onDownloadProgress = onDownloadProgress;
     this.onOverflow = onOverflow;
+    this.baseInitialPrompts = [];
+    this.replayMessages = [];
+    this.contextDirty = false;
+    this.rebuilding = null;
+    activeAdapter = this;
   }
 
   supported() { return 'LanguageModel' in self; }
@@ -43,19 +80,30 @@ export class LocalLanguageModel {
     catch (error) { throw normalizeAiError(error); }
   }
 
+  async createBrowserSession(initialPrompts) {
+    const suffix = await workspaceSystemSuffix();
+    const system = suffix ? `${SYSTEM_PROMPT}\n\n${suffix}` : SYSTEM_PROMPT;
+    const prompts = [{ role: 'system', content: system }, ...initialPrompts];
+    const session = await LanguageModel.create({
+      ...SESSION_OPTIONS,
+      initialPrompts: prompts,
+      monitor: (monitor) => monitor.addEventListener('downloadprogress', (event) => {
+        this.onDownloadProgress(Number(event.loaded || 0));
+      }),
+    });
+    session.addEventListener('contextoverflow', this.onOverflow);
+    return session;
+  }
+
   async createSession({ initialPrompts = [] } = {}) {
     if (!this.supported()) throw new AiError('MODEL_UNAVAILABLE', 'このChromeではPrompt APIを利用できません。');
-    await this.destroy();
-    const prompts = [{ role: 'system', content: SYSTEM_PROMPT }, ...initialPrompts];
+    await this.destroy({ keepRecipe: false });
+    this.baseInitialPrompts = [...initialPrompts];
+    this.replayMessages = [];
     try {
-      this.session = await LanguageModel.create({
-        ...SESSION_OPTIONS,
-        initialPrompts: prompts,
-        monitor: (monitor) => monitor.addEventListener('downloadprogress', (event) => {
-          this.onDownloadProgress(Number(event.loaded || 0));
-        }),
-      });
-      this.session.addEventListener('contextoverflow', this.onOverflow);
+      this.session = await this.createBrowserSession(this.baseInitialPrompts);
+      this.contextDirty = false;
+      dispatchRuntime('nano:session-created', this.snapshot());
       return this.snapshot();
     } catch (error) { throw normalizeAiError(error); }
   }
@@ -72,37 +120,116 @@ export class LocalLanguageModel {
     };
   }
 
+  markContextDirty() {
+    this.contextDirty = true;
+    dispatchRuntime('nano:workspace-dirty', { dirty: true });
+  }
+
+  async ensureFreshContext() {
+    if (!this.contextDirty || !this.session) return this.snapshot();
+    return this.rebuildContext();
+  }
+
+  async rebuildContext() {
+    if (!this.session) { this.contextDirty = false; return this.snapshot(); }
+    if (this.rebuilding) return this.rebuilding;
+    this.rebuilding = (async () => {
+      try {
+        try { this.session.destroy(); } catch { /* noop */ }
+        this.session = await this.createBrowserSession(this.baseInitialPrompts);
+        const replay = [...this.replayMessages];
+        for (const messages of replay) await this.session.append(messages);
+        this.contextDirty = false;
+        const snapshot = this.snapshot();
+        dispatchRuntime('nano:session-context-rebuilt', snapshot);
+        return snapshot;
+      } catch (error) {
+        throw normalizeAiError(error);
+      } finally { this.rebuilding = null; }
+    })();
+    return this.rebuilding;
+  }
+
   async measure(message) {
     if (!this.session) throw new AiError('NO_SESSION', 'AIセッションが準備されていません。');
-    try { return Number(await this.session.measureContextUsage(message)); }
-    catch (error) { throw normalizeAiError(error); }
+    try {
+      await this.ensureFreshContext();
+      const transformed = await transformPrompt(message);
+      return Number(await this.session.measureContextUsage(transformed));
+    } catch (error) { throw normalizeAiError(error); }
   }
 
   async append(messages) {
     if (!this.session) throw new AiError('NO_SESSION', 'AIセッションが準備されていません。');
-    try { await this.session.append(messages); }
-    catch (error) { throw normalizeAiError(error); }
+    try {
+      await this.session.append(messages);
+      this.replayMessages.push(messages);
+    } catch (error) { throw normalizeAiError(error); }
   }
 
   async stream(message, { signal, onText = () => {} } = {}) {
     if (!this.session) throw new AiError('NO_SESSION', 'AIセッションが準備されていません。');
     let full = '';
     try {
-      const stream = this.session.promptStreaming(message, { signal });
+      await this.ensureFreshContext();
+      const transformed = await transformPrompt(message);
+      const stream = this.session.promptStreaming(transformed, { signal });
       for await (const chunkValue of stream) {
         const chunk = String(chunkValue ?? '');
         if (chunk.startsWith(full)) full = chunk;
         else if (!full.endsWith(chunk)) full += chunk;
         onText(full);
       }
+      const replayUser = typeof transformed === 'string' ? [{ role: 'user', content: transformed }] : transformed;
+      this.replayMessages.push(replayUser);
+      this.replayMessages.push([{ role: 'assistant', content: full }]);
+      dispatchRuntime('nano:main-prompt-finished', { ok: true });
       return full;
-    } catch (error) { throw normalizeAiError(error); }
+    } catch (error) {
+      const normalized = normalizeAiError(error);
+      dispatchRuntime('nano:main-prompt-finished', { ok: false, code: normalized.code });
+      throw normalized;
+    }
   }
 
-  async destroy() {
-    if (!this.session) return;
-    try { this.session.destroy(); } catch { /* noop */ }
-    this.session = null;
+  async structuredDecision(prompt, schema, { signal, retryStandalone = true } = {}) {
+    if (!this.supported()) throw new AiError('MODEL_UNAVAILABLE', 'このChromeではPrompt APIを利用できません。');
+    let temp = null;
+    try {
+      if (this.session) {
+        await this.ensureFreshContext();
+        temp = await this.session.clone({ signal });
+      } else if (retryStandalone) {
+        const suffix = await workspaceSystemSuffix();
+        const system = suffix ? `${SYSTEM_PROMPT}\n\n${suffix}` : SYSTEM_PROMPT;
+        temp = await LanguageModel.create({
+          expectedInputs: [{ type: 'text', languages: ['ja', 'en'] }],
+          expectedOutputs: [{ type: 'text', languages: ['ja', 'en'] }],
+          initialPrompts: [{ role: 'system', content: system }],
+        });
+      } else {
+        throw new AiError('NO_SESSION', 'Planner用に複製できるAIセッションがありません。');
+      }
+      const raw = await temp.prompt(prompt, { responseConstraint: schema });
+      return JSON.parse(raw);
+    } catch (error) {
+      if (error instanceof AiError) throw error;
+      throw normalizeAiError(error);
+    } finally {
+      try { temp?.destroy?.(); } catch { /* noop */ }
+    }
+  }
+
+  async destroy({ keepRecipe = false } = {}) {
+    if (this.session) {
+      try { this.session.destroy(); } catch { /* noop */ }
+      this.session = null;
+    }
+    this.contextDirty = false;
+    if (!keepRecipe) {
+      this.baseInitialPrompts = [];
+      this.replayMessages = [];
+    }
   }
 }
 
