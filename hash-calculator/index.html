@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hash Calculator</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --text: #18202a;
+    --muted: #66717e;
+    --border: #d8dee6;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --code-bg: #f0f3f7;
+    --ok: #15803d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418;
+      --card: #1a1f26;
+      --text: #edf2f7;
+      --muted: #9ca8b6;
+      --border: #343c47;
+      --accent: #60a5fa;
+      --accent-hover: #93c5fd;
+      --code-bg: #12161b;
+      --ok: #4ade80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                 "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap {
+    width: min(980px, calc(100% - 32px));
+    margin: 40px auto;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: clamp(24px, 4vw, 34px);
+    letter-spacing: -.02em;
+  }
+  .lead {
+    margin: 0 0 24px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / .05);
+  }
+  label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 280px;
+    resize: vertical;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    font: 15px/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+          "Noto Sans Mono CJK JP", monospace;
+    background: var(--code-bg);
+    color: var(--text);
+    outline: none;
+  }
+  textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-top: 16px;
+  }
+  .field {
+    min-width: 180px;
+  }
+  select, button {
+    min-height: 42px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    font: inherit;
+  }
+  select {
+    width: 100%;
+    padding: 0 10px;
+    background: var(--card);
+    color: var(--text);
+  }
+  button {
+    padding: 0 16px;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--text);
+    font-weight: 700;
+  }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .result {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .hash-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: start;
+  }
+  output {
+    display: block;
+    min-height: 48px;
+    overflow-wrap: anywhere;
+    padding: 12px;
+    border-radius: 9px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    font: 14px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+    user-select: all;
+  }
+  .status {
+    min-height: 22px;
+    margin-top: 8px;
+    color: var(--ok);
+    font-size: 13px;
+  }
+  .note {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  @media (max-width: 640px) {
+    .wrap { margin: 20px auto; width: min(100% - 20px, 980px); }
+    .card { padding: 14px; border-radius: 12px; }
+    .field { width: 100%; }
+    .toolbar button { flex: 1; }
+    .hash-row { grid-template-columns: 1fr; }
+    .hash-row button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Hash Calculator</h1>
+  <p class="lead">
+    テキストまたはファイルから、ブラウザ内だけでハッシュ値を計算します。
+    入力内容・ファイルは外部へ送信しません。
+  </p>
+
+  <section class="card">
+    <div class="toolbar" style="margin-top:0; margin-bottom:18px;">
+      <button class="primary" id="textMode">テキスト</button>
+      <button id="fileMode">ファイル</button>
+    </div>
+
+    <div id="textPanel">
+      <label for="input">入力テキスト</label>
+      <textarea id="input" spellcheck="false" placeholder="ここにテキストを貼り付けてください"></textarea>
+    </div>
+
+    <div id="filePanel" hidden>
+      <label for="fileInput">ファイル</label>
+      <div id="dropZone" style="
+        border:2px dashed var(--border); border-radius:12px; padding:36px 20px;
+        text-align:center; background:var(--code-bg); cursor:pointer;">
+        <div style="font-weight:700; margin-bottom:6px;">ファイルをここにドロップ</div>
+        <div style="color:var(--muted); font-size:13px;">またはクリックして選択</div>
+        <input id="fileInput" type="file" hidden>
+      </div>
+      <div id="fileInfo" class="meta" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="field">
+        <label for="algorithm">アルゴリズム</label>
+        <select id="algorithm">
+          <option value="SHA-256" selected>SHA-256</option>
+          <option value="SHA-384">SHA-384</option>
+          <option value="SHA-512">SHA-512</option>
+        </select>
+      </div>
+
+      <div class="field" id="newlineField">
+        <label for="newline">改行コード</label>
+        <select id="newline">
+          <option value="asis" selected>そのまま</option>
+          <option value="lf">LF に統一</option>
+          <option value="crlf">CRLF に統一</option>
+        </select>
+      </div>
+
+      <button class="primary" id="calc">計算</button>
+      <button id="clear">クリア</button>
+    </div>
+
+    <div class="meta" id="textMeta">
+      <span>文字数: <strong id="chars">0</strong></span>
+      <span>UTF-8: <strong id="bytes">0</strong> bytes</span>
+      <span>改行数: <strong id="lines">0</strong></span>
+    </div>
+
+    <div class="result">
+      <label for="hash">ハッシュ値</label>
+      <div class="hash-row">
+        <output id="hash"></output>
+        <button id="copy" disabled>コピー</button>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+
+    <div class="note">
+      ※ ファイルモードではファイルのバイト列をそのままハッシュ化します。
+      同じ内容に見えるファイルでも、メタデータや内部構造が異なればハッシュ値は変わります。
+      テキストモードでは改行コードの統一も選択できます。
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const input = document.getElementById('input');
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const fileInfo = document.getElementById('fileInfo');
+  const textPanel = document.getElementById('textPanel');
+  const filePanel = document.getElementById('filePanel');
+  const textModeBtn = document.getElementById('textMode');
+  const fileModeBtn = document.getElementById('fileMode');
+  const newlineField = document.getElementById('newlineField');
+  const textMeta = document.getElementById('textMeta');
+  const algorithm = document.getElementById('algorithm');
+  const newline = document.getElementById('newline');
+  const calc = document.getElementById('calc');
+  const clear = document.getElementById('clear');
+  const copy = document.getElementById('copy');
+  const hash = document.getElementById('hash');
+  const status = document.getElementById('status');
+  const chars = document.getElementById('chars');
+  const bytes = document.getElementById('bytes');
+  const lines = document.getElementById('lines');
+
+  const encoder = new TextEncoder();
+  let mode = 'text';
+  let selectedFile = null;
+
+  function resetResult() {
+    hash.textContent = '';
+    copy.disabled = true;
+    status.textContent = '';
+  }
+
+  function setMode(next) {
+    mode = next;
+    const isText = mode === 'text';
+    textPanel.hidden = !isText;
+    filePanel.hidden = isText;
+    newlineField.hidden = !isText;
+    textMeta.hidden = !isText;
+    textModeBtn.classList.toggle('primary', isText);
+    fileModeBtn.classList.toggle('primary', !isText);
+    resetResult();
+  }
+
+  function normalizedText() {
+    let text = input.value;
+    if (newline.value === 'lf') {
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    } else if (newline.value === 'crlf') {
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+    }
+    return text;
+  }
+
+  function updateMeta() {
+    const text = normalizedText();
+    chars.textContent = [...text].length.toLocaleString();
+    bytes.textContent = encoder.encode(text).byteLength.toLocaleString();
+    lines.textContent = (text.match(/\n/g) || []).length.toLocaleString();
+    resetResult();
+  }
+
+  function formatBytes(n) {
+    if (n < 1024) return `${n.toLocaleString()} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let v = n;
+    let i = -1;
+    do { v /= 1024; i++; } while (v >= 1024 && i < units.length - 1);
+    return `${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)} ${units[i]} (${n.toLocaleString()} bytes)`;
+  }
+
+  function setFile(file) {
+    selectedFile = file || null;
+    resetResult();
+    if (!selectedFile) {
+      fileInfo.innerHTML = '<span>ファイル未選択</span>';
+      return;
+    }
+    const modified = selectedFile.lastModified
+      ? new Date(selectedFile.lastModified).toLocaleString()
+      : '不明';
+    fileInfo.innerHTML =
+      `<span>名前: <strong>${escapeHtml(selectedFile.name)}</strong></span>` +
+      `<span>サイズ: <strong>${formatBytes(selectedFile.size)}</strong></span>` +
+      `<span>更新日時: <strong>${modified}</strong></span>`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    })[c]);
+  }
+
+  async function calculate() {
+    try {
+      let data;
+      if (mode === 'text') {
+        data = encoder.encode(normalizedText());
+      } else {
+        if (!selectedFile) {
+          status.textContent = 'ファイルを選択してください。';
+          return;
+        }
+        status.textContent = '計算中…';
+        data = await selectedFile.arrayBuffer();
+      }
+
+      const digest = await crypto.subtle.digest(algorithm.value, data);
+      const hex = [...new Uint8Array(digest)]
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      hash.textContent = hex;
+      copy.disabled = false;
+      status.textContent = `${algorithm.value} を計算しました。`;
+    } catch (err) {
+      console.error(err);
+      resetResult();
+      status.textContent = 'ハッシュ値を計算できませんでした。';
+    }
+  }
+
+  async function copyHash() {
+    if (!hash.textContent) return;
+    try {
+      await navigator.clipboard.writeText(hash.textContent);
+      status.textContent = 'ハッシュ値をコピーしました。';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(hash);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      status.textContent = 'ハッシュ値を選択しました。Ctrl+C でコピーしてください。';
+    }
+  }
+
+  textModeBtn.addEventListener('click', () => setMode('text'));
+  fileModeBtn.addEventListener('click', () => setMode('file'));
+  input.addEventListener('input', updateMeta);
+  newline.addEventListener('change', updateMeta);
+  algorithm.addEventListener('change', resetResult);
+  calc.addEventListener('click', calculate);
+  copy.addEventListener('click', copyHash);
+
+  clear.addEventListener('click', () => {
+    if (mode === 'text') {
+      input.value = '';
+      updateMeta();
+      input.focus();
+    } else {
+      fileInput.value = '';
+      setFile(null);
+    }
+  });
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+  ['dragenter', 'dragover'].forEach(type => {
+    dropZone.addEventListener(type, e => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--accent)';
+    });
+  });
+  ['dragleave', 'drop'].forEach(type => {
+    dropZone.addEventListener(type, e => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--border)';
+    });
+  });
+  dropZone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+
+  updateMeta();
+  setFile(null);
+  setMode('text');
+})();
+</script>
+</body>
+</html>
