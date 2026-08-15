@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コラッツ予想 — 逐次計算ボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --board1:#1d4038; --board2:#12291f;
+  --chalk:#f3f1e6; --dim:rgba(243,241,230,.62);
+  --yellow:#ffd45e; --pink:#ff9d8a; --cyan:#8fd8ff;
+  --line:rgba(243,241,230,.22);
+  --disp:'DotGothic16',monospace;
+  --body:'Zen Kaku Gothic New',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --sk1:255px 15px 225px 15px/15px 225px 15px 255px;
+  --sk2:15px 225px 15px 255px/255px 15px 225px 15px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  min-height:100vh; color:var(--chalk); font-family:var(--body); font-size:15px; line-height:1.7;
+  background:
+    radial-gradient(1100px 700px at 72% -8%, rgba(255,255,255,.06), transparent 60%),
+    radial-gradient(900px 600px at 8% 108%, rgba(255,212,94,.05), transparent 55%),
+    linear-gradient(160deg, var(--board1), var(--board2) 70%, #0e2018);
+  background-attachment:fixed;
+  overflow-x:hidden;
+}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(240,245,235,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(240,245,235,.045) 1px,transparent 1px);background-size:34px 34px}
+.grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.055;mix-blend-mode:overlay;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="saturate" values="0"/></filter><rect width="140" height="140" filter="url(%23n)"/></svg>')}
+.smudge{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(6px)}
+.s1{width:46vw;height:46vw;left:-12vw;top:22vh;background:radial-gradient(circle,rgba(255,255,255,.05),transparent 62%);animation:drift 26s ease-in-out infinite alternate}
+.s2{width:38vw;height:38vw;right:-10vw;top:-8vh;background:radial-gradient(circle,rgba(255,212,94,.05),transparent 60%);animation:drift 34s ease-in-out infinite alternate-reverse}
+@keyframes drift{from{transform:translate(0,0)}to{transform:translate(6vw,4vh)}}
+::selection{background:var(--yellow);color:#22302a}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:clamp(18px,4vw,44px) clamp(14px,3vw,28px) 60px}
+header{display:flex;gap:32px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin-bottom:26px}
+.kicker{font-family:var(--disp);font-size:.78rem;letter-spacing:.32em;color:var(--yellow);margin-bottom:6px}
+h1{font-family:var(--disp);font-weight:400;font-size:clamp(2.4rem,6.5vw,4rem);letter-spacing:.05em;line-height:1.15;text-shadow:0 0 24px rgba(255,255,255,.12)}
+.underline{display:block;width:min(300px,70%);height:16px;margin-top:-4px}
+.underline path{stroke:var(--yellow);stroke-width:5;fill:none;stroke-linecap:round;stroke-dasharray:320;stroke-dashoffset:320;animation:draw 1s ease .35s forwards;filter:drop-shadow(0 0 6px rgba(255,212,94,.4))}
+@keyframes draw{to{stroke-dashoffset:0}}
+.lead{max-width:52ch;margin-top:14px;color:var(--dim)}
+.lead em{font-style:normal;color:var(--chalk);background:linear-gradient(transparent 62%,rgba(255,212,94,.28) 0);padding:0 .15em}
+.lead b{color:var(--yellow);font-family:var(--mono)}
+.rules{position:relative;display:flex;flex-direction:column;gap:12px;padding:6px 10px}
+.rule{border:1.5px solid var(--line);border-radius:var(--sk1);padding:.5em 1.1em;background:rgba(0,0,0,.18);font-family:var(--disp);letter-spacing:.05em;display:flex;gap:.9em;align-items:baseline;transition:transform .25s}
+.rule span{color:var(--dim);font-size:.82rem}.rule b{font-size:1.25rem;font-weight:400}.r-even{transform:rotate(-1.4deg)}.r-even b{color:var(--cyan)}.r-odd{transform:rotate(1.1deg)}.r-odd b{color:var(--pink)}.rule:hover{transform:rotate(0) scale(1.03)}
+.stamp{position:absolute;top:-20px;right:-8px;transform:rotate(9deg);border:2px dashed var(--pink);color:var(--pink);font-family:var(--disp);padding:.15em .6em;font-size:.85rem;letter-spacing:.2em;background:rgba(0,0,0,.25);opacity:.85}
+.panel{background:rgba(8,24,18,.45);border:1.5px solid var(--line);border-radius:var(--sk1);box-shadow:0 14px 34px rgba(0,0,0,.28),inset 0 0 40px rgba(0,0,0,.15);padding:clamp(14px,2.4vw,24px)}
+.lab{display:grid;grid-template-columns:1.25fr .9fr;gap:22px;align-items:start}
+.row-input{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.row-input label{font-family:var(--disp);font-size:1.6rem;color:var(--yellow)}
+#inp{flex:1;min-width:180px;max-width:380px;background:transparent;border:none;border-bottom:2px dashed rgba(243,241,230,.4);color:var(--chalk);font-family:var(--mono);font-weight:600;font-size:1.5rem;padding:.2em .1em;outline:none;transition:border-color .2s}
+#inp:focus{border-bottom:2px solid var(--yellow)}#inp::placeholder{color:rgba(243,241,230,.3);font-weight:400}#inp:disabled{opacity:.55}#inp.shake{animation:shake .4s}@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.btn{font-family:var(--disp);font-size:.95rem;letter-spacing:.08em;padding:.55em 1.15em;background:transparent;color:var(--chalk);border:1.5px solid rgba(243,241,230,.5);border-radius:var(--sk2);cursor:pointer;transition:transform .18s,background .18s,box-shadow .18s}.btn:hover:not(:disabled){transform:translateY(-2px);background:rgba(243,241,230,.1);box-shadow:0 8px 18px rgba(0,0,0,.3)}.btn:active:not(:disabled){transform:translateY(0)}.btn:disabled{opacity:.35;cursor:not-allowed}.btn.primary{background:var(--yellow);border-color:var(--yellow);color:#243129}.btn.primary:hover:not(:disabled){background:#ffdd78;box-shadow:0 8px 20px rgba(255,212,94,.25)}.btn.ghost{border-style:dashed;font-size:.85rem}
+.row-sub{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:16px 0 4px}.presets,.row-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.plabel{font-family:var(--disp);font-size:.8rem;color:var(--dim);letter-spacing:.1em}.chip{font-family:var(--mono);font-size:.85rem;color:var(--chalk);background:transparent;border:1px solid var(--line);border-radius:9px;padding:.28em .6em;cursor:pointer;transition:.18s}.chip:hover{transform:translateY(-2px);border-color:var(--yellow);color:var(--yellow);box-shadow:0 6px 14px rgba(0,0,0,.3)}.chip.dice{border-style:dashed;font-family:var(--disp)}.speed{display:flex;align-items:center;gap:6px;font-family:var(--disp);font-size:.78rem;color:var(--dim)}.speed input{accent-color:var(--yellow);width:110px;cursor:pointer}
+.display{position:relative;margin:18px 0;padding:18px 6px;border-block:1.5px dashed rgba(243,241,230,.18)}.op-line{display:flex;align-items:center;gap:.55em;flex-wrap:wrap;font-family:var(--mono);font-size:1rem;color:var(--dim);min-height:1.9em;margin-bottom:8px}.op-hint{font-family:var(--disp);letter-spacing:.08em;color:rgba(243,241,230,.45)}.op-badge{font-family:var(--disp);padding:.12em .6em;border-radius:8px;letter-spacing:.05em}.op-badge::before,.op-next::before{content:'→ ';color:var(--dim)}.op-badge.even{background:var(--cyan);color:#0d2731}.op-badge.odd{background:var(--pink);color:#371410}.op-next{color:#fff;font-weight:700}.bignum{font-family:var(--mono);font-weight:700;font-size:clamp(2.4rem,7.5vw,5.2rem);line-height:1.12;word-break:break-all;min-height:1.15em;transition:text-shadow .3s}.bignum.pop{animation:pop .32s cubic-bezier(.2,.9,.3,1.35)}@keyframes pop{0%{transform:scale(.93);opacity:.35}100%{transform:scale(1);opacity:1}}.glow-odd{text-shadow:0 0 28px rgba(255,157,138,.55)}.glow-even{text-shadow:0 0 28px rgba(143,216,255,.55)}.burst{position:absolute;inset:0;pointer-events:none;overflow:visible}.spark{position:absolute;width:9px;height:9px;border-radius:2px}
+.stats{display:flex;flex-wrap:wrap;gap:0 26px;margin-bottom:14px}.stat{padding:6px 26px 6px 0;border-right:1px dashed rgba(243,241,230,.2)}.stat:last-child{border-right:none}.stat i{display:block;font-style:normal;font-family:var(--disp);font-size:.72rem;letter-spacing:.14em;color:var(--dim)}.stat b{font-family:var(--mono);font-weight:600;font-size:1.2rem}.stat.odd b{color:var(--pink)}.stat.even b{color:var(--cyan)}
+.banner{font-family:var(--disp);letter-spacing:.05em;border:2px dashed var(--yellow);color:var(--yellow);border-radius:var(--sk2);padding:.6em 1em;background:rgba(255,212,94,.07)}.banner b{font-family:var(--mono)}.banner.pop{animation:pop .45s cubic-bezier(.2,.9,.3,1.35)}.err{margin-top:10px;font-family:var(--disp);color:var(--pink);letter-spacing:.06em}
+.side{display:flex;flex-direction:column;gap:10px}.panel-head{display:flex;justify-content:space-between;gap:10px;font-family:var(--disp);font-size:.82rem;letter-spacing:.14em;color:var(--dim)}.panel-head b{font-family:var(--mono);font-weight:400;color:var(--cyan);letter-spacing:0}#chart{width:100%;height:auto;display:block;background:rgba(0,0,0,.18);border:1px solid rgba(243,241,230,.12);border-radius:12px}.gl{stroke:rgba(243,241,230,.12);stroke-dasharray:4 6}.ca{fill:rgba(143,216,255,.09)}.cl{stroke:var(--cyan);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}.cd{fill:var(--yellow);filter:drop-shadow(0 0 5px rgba(255,212,94,.8))}.ct{fill:rgba(243,241,230,.5);font:10px var(--mono)}.chart-empty{fill:rgba(243,241,230,.35);font:14px var(--disp)}.log{list-style:none;max-height:262px;overflow-y:auto;font-family:var(--mono);font-size:.85rem;scrollbar-width:thin;scrollbar-color:rgba(243,241,230,.3) transparent}.log li{display:grid;grid-template-columns:3.4em 1fr auto 1fr;gap:.6em;align-items:baseline;padding:.22em .5em;border-radius:6px;animation:slideIn .25s ease both}.log li:hover{background:rgba(255,255,255,.06)}@keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}.li-i{color:rgba(243,241,230,.35);font-size:.75rem}.li-f{color:var(--dim);word-break:break-all}.li-o{font-family:var(--disp);font-size:.78rem;padding:.05em .5em;border-radius:6px;white-space:nowrap}.l-even .li-o{color:var(--cyan);border:1px solid rgba(143,216,255,.4)}.l-odd .li-o{color:var(--pink);border:1px solid rgba(255,157,138,.4)}.li-t{color:#fff;font-weight:600;word-break:break-all}.li-t::before{content:'→ ';color:rgba(243,241,230,.35);font-weight:400}
+.trailwrap{margin-top:22px}.trail{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 10px;scrollbar-width:thin;scrollbar-color:rgba(243,241,230,.3) transparent}.tchip{flex:none;font-family:var(--mono);font-size:.88rem;padding:.22em .6em;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.18);animation:slideIn .25s ease both;transition:transform .15s;word-break:break-all;max-width:240px}.tchip:hover{transform:translateY(-3px)}.tchip.even{border-bottom:3px solid var(--cyan)}.tchip.odd{border-bottom:3px solid var(--pink)}
+footer{margin-top:30px;color:rgba(243,241,230,.5);font-size:.82rem;max-width:70ch}footer b{color:var(--dim)}.reveal{opacity:0;transform:translateY(16px);animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}.d4{animation-delay:.32s}@keyframes rise{to{opacity:1;transform:none}}@media (max-width:900px){.lab{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start}.rules{flex-direction:row;flex-wrap:wrap}.stamp{top:-26px}}
+</style>
+</head>
+<body>
+<div class="grain"></div><div class="smudge s1"></div><div class="smudge s2"></div>
+<div class="wrap">
+<header class="reveal">
+  <div class="head-left"><div class="kicker">UNRESOLVED PROBLEM ─ 未解決問題</div><h1>コラッツ予想</h1><svg class="underline" viewBox="0 0 300 16"><path d="M4 9 C 70 3, 210 15, 296 6"/></svg><p class="lead">どんな正の整数から始めても、<em>偶数なら 2 で割り</em>、<em>奇数なら 3 倍して 1 を足す</em>。くり返せば必ず <b>1</b> にたどり着く――はずなのに、まだ誰も証明していない。このページは証明しません。ただ黙々と、逐次計算するだけです。</p></div>
+  <div class="rules"><div class="rule r-even"><span>n が偶数なら</span><b>n ÷ 2</b></div><div class="rule r-odd"><span>n が奇数なら</span><b>3n + 1</b></div><div class="stamp">未証明</div></div>
+</header>
+<main class="lab">
+<section class="panel reveal d1">
+<div class="row-input"><label for="inp">n =</label><input id="inp" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="例: 27"><button id="btnRun" class="btn primary">▶ 実行</button></div>
+<div class="row-sub"><div class="presets"><span class="plabel">ためす:</span><button class="chip" data-n="27">27</button><button class="chip" data-n="97">97</button><button class="chip" data-n="6171">6171</button><button class="chip" data-n="77031">77031</button><button class="chip dice" id="btnDice">🎲 ランダム</button></div><div class="row-ctrl"><button id="btnStep" class="btn ghost">⏭ 1ステップ</button><button id="btnReset" class="btn ghost">⟲ リセット</button><div class="speed"><span>遅</span><input type="range" id="speed" min="1" max="100" value="60"><span>速</span></div></div></div>
+<div class="display"><div class="op-line" id="opLine"><span class="op-hint">値を入力して ▶実行</span></div><div class="bignum" id="bigNum">?</div><div class="burst" id="burst"></div></div>
+<div class="stats"><div class="stat"><i>ステップ</i><b id="stSteps">0</b></div><div class="stat"><i>到達最大値</i><b id="stPeak">–</b></div><div class="stat odd"><i>×3+1 回数</i><b id="stOdd">0</b></div><div class="stat even"><i>÷2 回数</i><b id="stEven">0</b></div></div><div class="banner" id="banner" hidden></div><div class="err" id="err" hidden></div>
+</section>
+<aside class="panel side reveal d2"><div class="panel-head"><span>値の推移(log₂スケール)</span><b id="chartInfo"></b></div><svg id="chart" viewBox="0 0 640 240"></svg><div class="panel-head"><span>計算ログ</span></div><ol id="log" class="log"></ol></aside>
+</main>
+<section class="panel trailwrap reveal d3"><div class="panel-head"><span>たどった軌跡</span><b id="trailInfo"></b></div><div class="trail" id="trail"></div></section>
+<footer class="reveal d4"><p>このページは逐次計算するだけ。予想そのものは1937年の提唱以来ずっと未証明で、反例もまだ見つかっていません。計算は <b>BigInt</b> で行うので、巨大な中間値も正確に追えます。</p></footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const inp=$('inp'),btnRun=$('btnRun'),btnStep=$('btnStep'),btnReset=$('btnReset'),speed=$('speed'),bigNum=$('bigNum'),opLine=$('opLine'),stSteps=$('stSteps'),stPeak=$('stPeak'),stOdd=$('stOdd'),stEven=$('stEven'),banner=$('banner'),errBox=$('err'),logEl=$('log'),trailEl=$('trail'),trailInfo=$('trailInfo'),chart=$('chart'),chartInfo=$('chartInfo'),burst=$('burst');
+const fmt=b=>b.toLocaleString('ja-JP');
+function log2B(v){const s=v.toString(2),L=s.length;if(L<=52)return Math.log2(Number(v));const top=parseInt(s.slice(0,30),2);return L-1+Math.log2(top)-29}
+function norm(s){return s.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[,\s]/g,'')}
+let n0=null,cur=0n,steps=0,peak=0n,oddC=0,evenC=0,vals=[],timer=null,running=false,done=false;
+const delay=()=>1020-speed.value*10;
+function showErr(m){errBox.textContent=m;errBox.hidden=false;inp.classList.remove('shake');void inp.offsetWidth;inp.classList.add('shake');clearTimeout(showErr.t);showErr.t=setTimeout(()=>errBox.hidden=true,2400)}
+function parseInput(){const raw=norm(inp.value);if(!/^\d+$/.test(raw)){showErr('正の整数を入れてください(数字のみ)。');return null}const b=BigInt(raw);if(b<1n){showErr('1 以上の整数にしてください。');return null}return b}
+function silentParse(){const raw=norm(inp.value);if(!/^\d+$/.test(raw))return null;const b=BigInt(raw);return b>=1n?b:null}
+function setN(b){stopTimer();running=false;done=false;n0=b;cur=b;steps=0;oddC=0;evenC=0;peak=b;vals=[log2B(b)];bigNum.textContent=fmt(b);bigNum.classList.remove('glow-odd','glow-even');opLine.innerHTML='<span class="op-hint">ここから出発 ↓</span>';stSteps.textContent='0';stPeak.textContent='–';stOdd.textContent='0';stEven.textContent='0';logEl.innerHTML='';trailEl.innerHTML='';addTrail(b,null);banner.hidden=true;errBox.hidden=true;btnRun.textContent='▶ 実行';btnStep.disabled=false;inp.disabled=false;chartInfo.textContent='';drawChart();if(b===1n)finish()}
+function addTrail(v,op){const s=document.createElement('span');s.className='tchip'+(op?' '+op:'');s.textContent=fmt(v);trailEl.appendChild(s);while(trailEl.children.length>800)trailEl.firstChild.remove();trailEl.scrollLeft=trailEl.scrollWidth;trailInfo.textContent='全 '+(steps+1).toLocaleString('ja-JP')+' 個'}
+function addLog(i,prev,next,op){const li=document.createElement('li');li.className='l-'+op;li.innerHTML='<span class="li-i">'+i+'</span><span class="li-f">'+fmt(prev)+'</span><span class="li-o">'+(op==='even'?'÷ 2':'× 3 + 1')+'</span><span class="li-t">'+fmt(next)+'</span>';logEl.appendChild(li);while(logEl.children.length>400)logEl.firstChild.remove();logEl.scrollTop=logEl.scrollHeight}
+function stepOnce(){if(done||n0===null)return false;if(cur===1n){finish();return false}const prev=cur,isEven=(cur%2n===0n);if(isEven){cur/=2n;evenC++}else{cur=cur*3n+1n;oddC++}steps++;if(cur>peak)peak=cur;vals.push(log2B(cur));bigNum.textContent=fmt(cur);bigNum.classList.remove('pop','glow-odd','glow-even');void bigNum.offsetWidth;bigNum.classList.add('pop',isEven?'glow-even':'glow-odd');opLine.innerHTML='<span class="op-prev">'+fmt(prev)+'</span><span class="op-badge '+(isEven?'even':'odd')+'">'+(isEven?'÷ 2':'× 3 + 1')+'</span><span class="op-next">'+fmt(cur)+'</span>';stSteps.textContent=steps.toLocaleString('ja-JP');stPeak.textContent=fmt(peak);stOdd.textContent=oddC.toLocaleString('ja-JP');stEven.textContent=evenC.toLocaleString('ja-JP');addTrail(cur,isEven?'even':'odd');addLog(steps,prev,cur,isEven?'even':'odd');drawChart();chartInfo.textContent='現在 ≈ 2^'+vals[vals.length-1].toFixed(1);if(cur===1n){finish();return false}return true}
+function finish(){done=true;stopTimer();running=false;btnStep.disabled=true;btnRun.textContent='▶ もう一度';banner.innerHTML=(steps===0)?'入力値がすでに <b>1</b> です。計算するまでもなく到達済み。':'到達! <b>'+fmt(n0)+'</b> は <b>'+steps.toLocaleString('ja-JP')+'</b> ステップで 1 にたどり着いた(最大値 '+fmt(peak)+')。';banner.hidden=false;banner.classList.remove('pop');void banner.offsetWidth;banner.classList.add('pop');confetti()}
+function confetti(){const colors=['#ffd45e','#8fd8ff','#ff9d8a','#f3f1e6'];for(let i=0;i<30;i++){const p=document.createElement('i');p.className='spark';p.style.background=colors[i%4];p.style.left='18%';p.style.top='55%';burst.appendChild(p);const a=Math.random()*Math.PI*2,d=70+Math.random()*180;p.animate([{transform:'translate(-50%,-50%)',opacity:1},{transform:'translate('+(Math.cos(a)*d)+'px,'+(Math.sin(a)*d)+'px) rotate('+(Math.random()*360)+'deg)',opacity:0}],{duration:800+Math.random()*700,easing:'cubic-bezier(.15,.7,.3,1)'}).onfinish=()=>p.remove()}}
+function stopTimer(){clearInterval(timer);timer=null}
+function schedule(){stopTimer();timer=setInterval(()=>{if(!stepOnce()){stopTimer();running=false;inp.disabled=false}},delay())}
+function start(){if(done||n0===null)return;running=true;inp.disabled=true;btnRun.textContent='⏸ 一時停止';schedule()}
+function pause(){stopTimer();running=false;inp.disabled=false;btnRun.textContent='▶ 実行'}
+btnRun.addEventListener('click',()=>{if(running){pause();return}const b=parseInput();if(b===null)return;if(done||n0===null||n0!==b)setN(b);start()});
+btnStep.addEventListener('click',()=>{if(done)return;if(running)pause();if(n0===null){const b=parseInput();if(b===null)return;setN(b);if(!done)stepOnce();return}stepOnce()});
+btnReset.addEventListener('click',()=>{const b=silentParse();if(b)setN(b);else if(n0!==null)setN(n0)});
+document.querySelectorAll('.chip[data-n]').forEach(c=>{c.addEventListener('click',()=>{if(running)pause();inp.value=c.dataset.n;setN(BigInt(c.dataset.n));start()})});
+$('btnDice').addEventListener('click',()=>{if(running)pause();const v=2+Math.floor(Math.random()*99998);inp.value=String(v);setN(BigInt(v));start()});
+speed.addEventListener('input',()=>{if(running)schedule()});
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(!running)btnRun.click()}});
+function drawChart(){const W=640,H=240,P=22;if(vals.length<2){chart.innerHTML='<text x="320" y="124" text-anchor="middle" class="chart-empty">計算するとここにグラフが描かれます</text>';return}const stride=Math.max(1,Math.floor(vals.length/900));const pts=[];for(let i=0;i<vals.length;i+=stride)pts.push(vals[i]);if(pts[pts.length-1]!==vals[vals.length-1])pts.push(vals[vals.length-1]);let mn=Infinity,mx=-Infinity;for(const v of pts){if(v<mn)mn=v;if(v>mx)mx=v}if(mx-mn<1e-9)mx=mn+1;const X=i=>P+i*(W-2*P)/Math.max(1,pts.length-1);const Y=v=>H-P-((v-mn)/(mx-mn))*(H-2*P);let grid='';for(let g=1;g<=3;g++){const y=(P+g*(H-2*P)/4).toFixed(1);grid+='<line x1="'+P+'" y1="'+y+'" x2="'+(W-P)+'" y2="'+y+'" class="gl"/>'}const d=pts.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1)).join('');const area=d+'L'+X(pts.length-1).toFixed(1)+','+(H-P)+'L'+P+','+(H-P)+'Z';const lx=X(pts.length-1).toFixed(1),ly=Y(pts[pts.length-1]).toFixed(1);chart.innerHTML=grid+'<path d="'+area+'" class="ca"/>'+'<path d="'+d+'" class="cl"/>'+'<circle cx="'+lx+'" cy="'+ly+'" r="4" class="cd"/>'+'<text x="'+(W-P)+'" y="'+(P-8)+'" text-anchor="end" class="ct">log₂ max ≈ '+mx.toFixed(1)+'</text>'+'<text x="'+(W-P)+'" y="'+(H-8)+'" text-anchor="end" class="ct">log₂ min ≈ '+mn.toFixed(1)+'</text>'}
+drawChart();inp.focus();
+</script>
+</body>
+</html>
