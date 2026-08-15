@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f7f8">
+<title>単価くらべ</title>
+<style>
+:root{
+  --bg:#f6f7f8;
+  --panel:#fff;
+  --text:#111827;
+  --muted:#6b7280;
+  --line:#e5e7eb;
+  --focus:#2563eb;
+  --best-bg:#ecfdf3;
+  --best:#16794a;
+  --danger:#b42318;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input{font:inherit}
+button{-webkit-tap-highlight-color:transparent}
+.app{
+  max-width:680px;
+  margin:0 auto;
+  padding:calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.top{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 4px;
+}
+h1{
+  margin:0;
+  font-size:18px;
+  line-height:1;
+  letter-spacing:.01em;
+}
+.hint{
+  color:var(--muted);
+  font-size:11px;
+  white-space:nowrap;
+}
+.sheet{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+.head,.item{
+  display:grid;
+  grid-template-columns:28px minmax(70px,1fr) minmax(70px,1fr) minmax(96px,1.15fr) 28px;
+  gap:5px;
+  align-items:center;
+}
+.head{
+  height:31px;
+  padding:0 6px;
+  background:#f9fafb;
+  border-bottom:1px solid var(--line);
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+  text-align:center;
+}
+.head .right{text-align:right;padding-right:4px}
+.rows{
+  overflow:visible;
+}
+.item{
+  min-height:58px;
+  padding:6px;
+  border-bottom:1px solid #eef0f2;
+  transition:background .12s ease;
+}
+.item:last-child{border-bottom:0}
+.item.best{background:var(--best-bg)}
+.idx{
+  width:24px;height:24px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:#f3f4f6;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+}
+.item.best .idx{
+  background:var(--best);
+  color:white;
+}
+input{
+  min-width:0;
+  width:100%;
+  height:40px;
+  border:1px solid #d7dbe0;
+  border-radius:10px;
+  background:#fff;
+  color:var(--text);
+  outline:0;
+  text-align:right;
+  padding:0 9px;
+  font-size:17px;
+  font-weight:650;
+  font-variant-numeric:tabular-nums;
+  -moz-appearance:textfield;
+}
+input::-webkit-inner-spin-button,
+input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input::placeholder{color:#c2c7ce;font-weight:500}
+input:focus{
+  border-color:var(--focus);
+  box-shadow:0 0 0 2px rgba(37,99,235,.12);
+}
+.result{
+  min-width:0;
+  text-align:right;
+  padding-right:3px;
+  font-variant-numeric:tabular-nums;
+}
+.unit{
+  font-size:14px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.meta{
+  margin-top:1px;
+  font-size:10px;
+  line-height:1.1;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.item.best .unit,.item.best .meta{color:var(--best)}
+.del{
+  width:28px;height:28px;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:#a3a8b0;
+  font-size:19px;
+  line-height:1;
+  padding:0;
+  cursor:pointer;
+}
+.del:active{background:#f3f4f6;color:var(--danger)}
+.del.hidden{visibility:hidden}
+.bottom{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:6px;
+  min-height:43px;
+}
+.summary{
+  min-width:0;
+  padding-left:4px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--muted);
+  font-size:11px;
+}
+.summary strong{color:var(--best);font-weight:800}
+.btn{
+  height:42px;
+  border-radius:11px;
+  border:1px solid var(--line);
+  background:white;
+  color:var(--text);
+  padding:0 13px;
+  font-weight:800;
+  cursor:pointer;
+}
+.btn:active{transform:translateY(1px)}
+.btn.add{
+  border-color:#111827;
+  background:#111827;
+  color:#fff;
+  min-width:88px;
+}
+@media (max-width:390px){
+  .app{padding-left:6px;padding-right:6px}
+  .head,.item{
+    grid-template-columns:25px minmax(64px,1fr) minmax(64px,1fr) minmax(90px,1.12fr) 25px;
+    gap:4px;
+  }
+  .item{padding:5px 4px;min-height:55px}
+  input{height:39px;padding:0 7px;font-size:16px}
+  .unit{font-size:13px}
+  .btn{padding:0 10px}
+  .btn.add{min-width:80px}
+}
+@media (max-height:600px){
+  .hint{display:none}
+  .item{min-height:52px;padding-top:4px;padding-bottom:4px}
+  input{height:37px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>単価くらべ</h1>
+    <div class="hint">同じ単位で入力</div>
+  </header>
+
+  <section class="sheet" aria-label="単価比較">
+    <div class="head" aria-hidden="true">
+      <div></div>
+      <div>容量</div>
+      <div>価格</div>
+      <div class="right">100あたり</div>
+      <div></div>
+    </div>
+    <div class="rows" id="rows"></div>
+  </section>
+
+  <footer class="bottom">
+    <div class="summary" id="summary">容量と価格を入力</div>
+    <button class="btn" id="clear" type="button">クリア</button>
+    <button class="btn add" id="add" type="button">＋ 追加</button>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const rowsEl = document.getElementById('rows');
+  const summaryEl = document.getElementById('summary');
+  const addBtn = document.getElementById('add');
+  const clearBtn = document.getElementById('clear');
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let serial = 0;
+
+  const fmt = new Intl.NumberFormat('ja-JP', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0
+  });
+
+  function labelFor(i){
+    return i < letters.length ? letters[i] : String(i + 1);
+  }
+
+  function makeRow(focus = false){
+    serial++;
+    const row = document.createElement('div');
+    row.className = 'item';
+    row.innerHTML = `
+      <div class="idx"></div>
+      <input class="cap" type="number" inputmode="decimal" min="0" step="any"
+             autocomplete="off" placeholder="350" aria-label="容量">
+      <input class="price" type="number" inputmode="decimal" min="0" step="any"
+             autocomplete="off" placeholder="398" aria-label="価格">
+      <div class="result" aria-live="polite">
+        <div class="unit">—</div>
+        <div class="meta">円 / 100</div>
+      </div>
+      <button class="del" type="button" aria-label="削除">×</button>
+    `;
+    rowsEl.appendChild(row);
+
+    const cap = row.querySelector('.cap');
+    const price = row.querySelector('.price');
+    const del = row.querySelector('.del');
+
+    cap.addEventListener('input', recalc);
+    price.addEventListener('input', recalc);
+
+    cap.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        price.focus();
+        price.select();
+      }
+    });
+
+    price.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        const rows = [...rowsEl.children];
+        const i = rows.indexOf(row);
+        if(i === rows.length - 1){
+          makeRow(true);
+        }else{
+          const next = rows[i + 1].querySelector('.cap');
+          next.focus();
+          next.select();
+        }
+      }
+    });
+
+    del.addEventListener('click', () => {
+      if(rowsEl.children.length <= 2) return;
+      row.remove();
+      renumber();
+      recalc();
+    });
+
+    renumber();
+    recalc();
+
+    if(focus){
+      requestAnimationFrame(() => {
+        cap.focus();
+        row.scrollIntoView({block:'nearest', behavior:'smooth'});
+      });
+    }
+  }
+
+  function renumber(){
+    const rows = [...rowsEl.children];
+    rows.forEach((row, i) => {
+      row.querySelector('.idx').textContent = labelFor(i);
+      row.querySelector('.del').classList.toggle('hidden', rows.length <= 2);
+    });
+  }
+
+  function recalc(){
+    const rows = [...rowsEl.children];
+    const valid = [];
+
+    rows.forEach((row, i) => {
+      row.classList.remove('best');
+      const cap = Number(row.querySelector('.cap').value);
+      const price = Number(row.querySelector('.price').value);
+      const unitEl = row.querySelector('.unit');
+      const metaEl = row.querySelector('.meta');
+
+      if(cap > 0 && price >= 0 && Number.isFinite(cap) && Number.isFinite(price)){
+        const per100 = price / cap * 100;
+        valid.push({row, i, per100});
+        unitEl.textContent = `¥${fmt.format(per100)}`;
+        metaEl.textContent = '円 / 100';
+      }else{
+        unitEl.textContent = '—';
+        metaEl.textContent = '円 / 100';
+      }
+    });
+
+    if(!valid.length){
+      summaryEl.textContent = '容量と価格を入力';
+      return;
+    }
+
+    const best = Math.min(...valid.map(v => v.per100));
+    const EPS = Math.max(1e-9, best * 1e-9);
+    const winners = valid.filter(v => Math.abs(v.per100 - best) <= EPS);
+
+    valid.forEach(v => {
+      const metaEl = v.row.querySelector('.meta');
+      if(Math.abs(v.per100 - best) <= EPS){
+        v.row.classList.add('best');
+        metaEl.textContent = valid.length >= 2 ? '最安' : '円 / 100';
+      }else if(valid.length >= 2){
+        const diff = (v.per100 / best - 1) * 100;
+        metaEl.textContent = `最安 +${diff < 0.1 ? '<0.1' : fmt.format(diff)}%`;
+      }
+    });
+
+    if(valid.length === 1){
+      summaryEl.innerHTML = `単価 <strong>¥${fmt.format(best)}</strong> / 100`;
+    }else if(winners.length === 1){
+      summaryEl.innerHTML = `最安 <strong>${labelFor(winners[0].i)}</strong> ・ ¥${fmt.format(best)} / 100`;
+    }else{
+      summaryEl.innerHTML = `同率最安 <strong>${winners.map(w => labelFor(w.i)).join('・')}</strong> ・ ¥${fmt.format(best)} / 100`;
+    }
+  }
+
+  function clearAll(){
+    const rows = [...rowsEl.children];
+    rows.forEach((row, i) => {
+      if(i < 2){
+        row.querySelector('.cap').value = '';
+        row.querySelector('.price').value = '';
+      }else{
+        row.remove();
+      }
+    });
+    renumber();
+    recalc();
+
+    // PCではすぐ再入力。スマホでは勝手にキーボードを出さない。
+    if(!matchMedia('(pointer: coarse)').matches){
+      const first = rowsEl.querySelector('.cap');
+      first?.focus();
+      first?.select();
+    }
+  }
+
+  addBtn.addEventListener('click', () => makeRow(true));
+  clearBtn.addEventListener('click', clearAll);
+
+  makeRow();
+  makeRow();
+
+  // PCのみ初期フォーカス。スマホでは画面表示直後のキーボード出現を避ける。
+  if(!matchMedia('(pointer: coarse)').matches){
+    requestAnimationFrame(() => rowsEl.querySelector('.cap')?.focus());
+  }
+})();
+</script>
+</body>
+</html>
