@@ -4,6 +4,12 @@ Small experiments, visual tools and strange little applications.
 
 ## Apps
 
+### Circular Flow Garden
+
+人口、ごみ発生量、分別率、異物率、処理能力、政策を操作し、自治体の資源循環フローと主要指標の変化を観察するブラウザ内完結型シミュレーター。
+
+- App: [`circular-flow-garden/`](./circular-flow-garden/)
+
 ### Earth Pulse
 
 地震、自然イベント、宇宙天気、ISS、昼夜の移動を、一つの「惑星の鼓動」として眺めるリアルタイム・プラネタリウム。
