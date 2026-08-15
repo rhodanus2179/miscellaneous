@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circular Flow Garden</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0c1318;
+    --panel: rgba(18, 31, 38, 0.92);
+    --panel-2: rgba(24, 42, 50, 0.86);
+    --line: rgba(180, 224, 222, 0.16);
+    --text: #edf7f3;
+    --muted: #9cb3b0;
+    --accent: #71e0bc;
+    --accent-2: #70b7ff;
+    --warning: #ffbf69;
+    --danger: #ff6b6b;
+    --good: #7fe59b;
+    --shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
+    --radius: 16px;
+  }
+
+  body.light {
+    color-scheme: light;
+    --bg: #edf4f1;
+    --panel: rgba(255, 255, 255, 0.94);
+    --panel-2: rgba(246, 251, 249, 0.94);
+    --line: rgba(34, 78, 72, 0.15);
+    --text: #18302e;
+    --muted: #627a77;
+    --accent: #147d65;
+    --accent-2: #176fb5;
+    --warning: #b96708;
+    --danger: #c83c3c;
+    --good: #2c8b49;
+    --shadow: 0 12px 34px rgba(29, 68, 61, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    font-family: Inter, "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  button, input, select { font: inherit; }
+  button { color: inherit; }
+
+  .app {
+    display: grid;
+    grid-template-rows: 58px minmax(0, 1fr) 112px;
+    height: 100%;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(75, 156, 139, 0.13), transparent 42%),
+      var(--bg);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    z-index: 20;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 230px;
+  }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: linear-gradient(145deg, rgba(113,224,188,.28), rgba(112,183,255,.14));
+    border: 1px solid rgba(113,224,188,.38);
+    box-shadow: inset 0 0 18px rgba(113,224,188,.08);
+  }
+  .brand-mark svg { width: 22px; height: 22px; }
+  .brand-title { font-weight: 760; letter-spacing: .01em; line-height: 1.05; }
+  .brand-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  .scenario-input {
+    width: min(330px, 25vw);
+    min-width: 160px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    outline: none;
+  }
+  .scenario-input:focus { border-color: rgba(113,224,188,.55); box-shadow: 0 0 0 3px rgba(113,224,188,.10); }
+
+  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    border-radius: 10px;
+    min-height: 34px;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: rgba(113,224,188,.42); }
+  .btn:active { transform: translateY(0); }
+  .btn.primary { background: rgba(113,224,188,.16); border-color: rgba(113,224,188,.34); }
+  .btn.danger { color: var(--danger); }
+  .btn.icon { width: 36px; padding: 0; font-size: 17px; }
+  .btn.small { min-height: 30px; padding: 5px 8px; font-size: 12px; }
+  .btn.active { background: rgba(113,224,188,.24); border-color: rgba(113,224,188,.65); }
+
+  .main {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 278px minmax(0, 1fr) 302px;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .panel {
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(113,224,188,.25) transparent;
+  }
+  .panel-inner { padding: 14px; }
+  .section { padding: 2px 0 15px; margin-bottom: 13px; border-bottom: 1px solid var(--line); }
+  .section:last-child { border-bottom: 0; margin-bottom: 0; }
+  .section-title {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 11px;
+  }
+  .section-note { font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+  .control { margin-bottom: 13px; }
+  .control:last-child { margin-bottom: 0; }
+  .control-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+  .control-label { font-size: 12px; color: var(--text); }
+  .control-value { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 730; }
+  input[type="range"] {
+    width: 100%; accent-color: var(--accent); cursor: pointer;
+  }
+  .range-scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; margin-top: 2px; }
+
+  .play-row { display: grid; grid-template-columns: 1fr repeat(4, auto); gap: 6px; }
+  .speed-btn { min-width: 39px; }
+  .date-card {
+    display: grid; grid-template-columns: 1fr auto; align-items: center;
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 11px; margin-bottom: 9px;
+    background: rgba(113,224,188,.05);
+  }
+  .sim-date { font-size: 16px; font-weight: 780; }
+  .sim-day { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 0 5px rgba(255,191,105,.08); }
+  .status-dot.running { background: var(--good); box-shadow: 0 0 0 5px rgba(127,229,155,.08); animation: pulseDot 1.5s infinite; }
+  @keyframes pulseDot { 50% { transform: scale(.72); opacity: .7; } }
+
+  .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .policy {
+    min-height: 72px; padding: 9px; text-align: left; border-radius: 12px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.025); cursor: pointer;
+  }
+  .policy:hover { border-color: rgba(113,224,188,.42); }
+  .policy.on { border-color: rgba(113,224,188,.68); background: rgba(113,224,188,.12); }
+  .policy strong { display: block; font-size: 12px; margin-bottom: 4px; }
+  .policy span { display: block; font-size: 9px; line-height: 1.45; color: var(--muted); }
+
+  .canvas-wrap {
+    min-width: 0; min-height: 0; position: relative; overflow: hidden;
+    border-radius: var(--radius); border: 1px solid var(--line);
+    background: #0b171b; box-shadow: var(--shadow);
+  }
+  #worldCanvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  #worldCanvas.dragging { cursor: grabbing; }
+  .canvas-toolbar {
+    position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; z-index: 5;
+  }
+  .legend {
+    position: absolute; left: 12px; bottom: 12px; padding: 8px 10px;
+    border-radius: 11px; background: rgba(8, 18, 23, .78); border: 1px solid rgba(255,255,255,.10);
+    backdrop-filter: blur(8px); display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; color: #c8dbd7;
+    pointer-events: none;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .world-hint {
+    position: absolute; right: 12px; bottom: 12px; max-width: 280px; padding: 8px 10px;
+    border-radius: 11px; background: rgba(8,18,23,.72); border: 1px solid rgba(255,255,255,.09);
+    color: #aabfbc; font-size: 10px; line-height: 1.45; pointer-events: none;
+  }
+
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi {
+    padding: 11px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.025);
+    min-height: 79px; position: relative; overflow: hidden;
+  }
+  .kpi::after { content:""; position:absolute; inset:auto -16px -24px auto; width:62px; height:62px; border-radius:50%; background:rgba(113,224,188,.05); }
+  .kpi-label { font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+  .kpi-value { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+  .kpi-unit { font-size: 10px; color: var(--muted); margin-left: 2px; }
+  .kpi-delta { margin-top: 5px; font-size: 9px; color: var(--muted); }
+  .kpi.good .kpi-value { color: var(--good); }
+  .kpi.warn .kpi-value { color: var(--warning); }
+  .kpi.bad .kpi-value { color: var(--danger); }
+
+  .diagnosis {
+    border: 1px solid var(--line); border-radius: 13px; padding: 11px; background: rgba(112,183,255,.055);
+  }
+  .diagnosis-title { font-size: 14px; font-weight: 780; margin-bottom: 5px; }
+  .diagnosis-body { font-size: 11px; color: var(--muted); line-height: 1.55; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { font-size: 9px; padding: 4px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .chip.warn { color: var(--warning); border-color: rgba(255,191,105,.28); }
+  .chip.bad { color: var(--danger); border-color: rgba(255,107,107,.28); }
+  .chip.good { color: var(--good); border-color: rgba(127,229,155,.28); }
+
+  .facility-card { border: 1px solid var(--line); border-radius: 13px; padding: 11px; background: rgba(255,255,255,.025); }
+  .facility-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom: 7px; }
+  .facility-name { font-weight: 760; font-size: 13px; }
+  .facility-type { color: var(--muted); font-size: 9px; }
+  .facility-bars { display:grid; gap: 8px; }
+  .mini-bar-label { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); margin-bottom:4px; }
+  .mini-bar { height: 6px; background: rgba(255,255,255,.06); border-radius:99px; overflow:hidden; }
+  .mini-bar > span { display:block; height:100%; border-radius:99px; background: var(--accent); transition: width .25s; }
+  .mini-bar > span.warn { background: var(--warning); }
+  .mini-bar > span.bad { background: var(--danger); }
+
+  .trend-wrap { height: 105px; border:1px solid var(--line); border-radius:13px; overflow:hidden; background:rgba(255,255,255,.018); }
+  #trendCanvas { width:100%; height:100%; display:block; }
+
+  footer {
+    min-height: 0; display: grid; grid-template-columns: 1fr 360px; gap: 10px; padding: 0 10px 10px;
+  }
+  .log-panel, .assumption-panel {
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .footer-head { height: 34px; padding: 8px 12px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); font-size:11px; font-weight:730; color:var(--muted); }
+  .log-list { height: calc(100% - 34px); overflow:auto; padding: 7px 12px; font-size: 10px; line-height: 1.5; }
+  .log-item { display:grid; grid-template-columns: 58px 1fr; gap:8px; padding:3px 0; }
+  .log-date { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log-text.warn { color: var(--warning); }
+  .log-text.bad { color: var(--danger); }
+  .log-text.good { color: var(--good); }
+  .assumption-body { padding:8px 12px; font-size:9px; color:var(--muted); line-height:1.55; overflow:auto; height:calc(100% - 34px); }
+
+  .modal-backdrop {
+    position: fixed; inset:0; display:none; align-items:center; justify-content:center; padding:20px;
+    background: rgba(0,0,0,.58); backdrop-filter:blur(7px); z-index:100;
+  }
+  .modal-backdrop.open { display:flex; }
+  .modal {
+    width:min(680px, 94vw); max-height:86vh; overflow:auto; border-radius:18px; border:1px solid var(--line); background:var(--panel); box-shadow:0 30px 90px rgba(0,0,0,.45);
+  }
+  .modal-head { padding:15px 17px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+  .modal-title { font-weight:800; }
+  .modal-body { padding:17px; color:var(--muted); line-height:1.7; font-size:12px; }
+  .modal-body h3 { color:var(--text); font-size:13px; margin:18px 0 6px; }
+  .modal-body h3:first-child { margin-top:0; }
+  .modal-body code { color:var(--accent); }
+
+  .toast-stack { position:fixed; right:16px; top:70px; z-index:120; display:grid; gap:8px; pointer-events:none; }
+  .toast { min-width:240px; max-width:360px; padding:10px 12px; border-radius:11px; border:1px solid var(--line); background:var(--panel); box-shadow:var(--shadow); font-size:11px; animation:toastIn .22s ease; }
+  @keyframes toastIn { from { opacity:0; transform:translateY(-7px); } }
+
+  .hidden { display:none !important; }
+
+  @media (max-width: 1120px) {
+    .main { grid-template-columns: 238px minmax(0, 1fr) 260px; }
+    .brand { min-width: 180px; }
+    .header-actions .label { display:none; }
+  }
+  @media (max-width: 860px) {
+    html, body { overflow:auto; }
+    .app { height:auto; min-height:100%; grid-template-rows:auto auto auto; }
+    header { flex-wrap:wrap; }
+    .brand { flex:1; }
+    .scenario-input { order:3; width:100%; }
+    .main { grid-template-columns:1fr; grid-template-rows:auto 62vh auto; }
+    .canvas-wrap { min-height:520px; }
+    footer { grid-template-columns:1fr; height:260px; }
+    .header-actions { margin-left:0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 7.5c1.8-3.1 6.1-4 9-1.9l1.3-2.1.8 5.1-5-.8 2-1.1c-2-1-4.5-.2-5.5 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 16.5c-1.8 3.1-6.1 4-9 1.9l-1.3 2.1-.8-5.1 5 .8-2 1.1c2 1 4.5.2 5.5-1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div><div class="brand-title">Circular Flow Garden</div><div class="brand-sub">地域資源循環を、流れで考える。</div></div>
+    </div>
+    <input id="scenarioName" class="scenario-input" value="人口10万人・プラスチック循環モデル" aria-label="シナリオ名">
+    <div class="header-actions">
+      <button class="btn small primary" id="saveBtn" title="ブラウザに保存"><span>保存</span></button>
+      <button class="btn small" id="exportBtn" title="JSONとして出力"><span class="label">JSON</span>出力</button>
+      <button class="btn small" id="importBtn" title="JSONを読み込む"><span class="label">JSON</span>読込</button>
+      <input type="file" id="importFile" class="hidden" accept="application/json,.json">
+      <button class="btn small" id="pngBtn" title="現在の画面をPNG出力">PNG</button>
+      <button class="btn icon" id="themeBtn" title="テーマ切替" aria-label="テーマ切替">◐</button>
+      <button class="btn icon" id="helpBtn" title="ヘルプ" aria-label="ヘルプ">?</button>
+      <button class="btn icon danger" id="resetBtn" title="初期化" aria-label="初期化">↺</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="panel"><div class="panel-inner">
+      <section class="section">
+        <div class="section-title">時間操作 <span class="section-note">Spaceで再生</span></div>
+        <div class="date-card">
+          <div><div id="simDate" class="sim-date">2026年4月</div><div id="simDay" class="sim-day">経過 0日</div></div>
+          <span id="statusDot" class="status-dot"></span>
+        </div>
+        <div class="play-row">
+          <button id="playBtn" class="btn primary">▶ 再生</button>
+          <button class="btn small speed-btn active" data-speed="1">1×</button>
+          <button class="btn small speed-btn" data-speed="4">4×</button>
+          <button class="btn small speed-btn" data-speed="12">12×</button>
+          <button class="btn small speed-btn" data-speed="30">30×</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">地域条件</div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="population">人口</label><span class="control-value" id="populationVal"></span></div>
+          <input id="population" type="range" min="30000" max="250000" step="5000">
+          <div class="range-scale"><span>3万人</span><span>25万人</span></div>
+        </div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="generation">プラ発生原単位</label><span class="control-value" id="generationVal"></span></div>
+          <input id="generation" type="range" min="0.08" max="0.30" step="0.01">
+          <div class="range-scale"><span>0.08</span><span>0.30 kg/人日</span></div>
+        </div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="separation">分別協力度</label><span class="control-value" id="separationVal"></span></div>
+          <input id="separation" type="range" min="0.20" max="0.95" step="0.01">
+        </div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="contamination">異物率</label><span class="control-value" id="contaminationVal"></span></div>
+          <input id="contamination" type="range" min="0.02" max="0.35" step="0.01">
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">施設能力 <span class="section-note">t/日</span></div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="sortingCap">選別施設</label><span class="control-value" id="sortingCapVal"></span></div>
+          <input id="sortingCap" type="range" min="4" max="40" step="1">
+        </div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="recyclingCap">再資源化施設</label><span class="control-value" id="recyclingCapVal"></span></div>
+          <input id="recyclingCap" type="range" min="3" max="35" step="1">
+        </div>
+        <div class="control">
+          <div class="control-row"><label class="control-label" for="incinerationCap">焼却施設</label><span class="control-value" id="incinerationCapVal"></span></div>
+          <input id="incinerationCap" type="range" min="10" max="80" step="2">
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">施策カード</div>
+        <div class="policy-grid">
+          <button class="policy" data-policy="combined"><strong>一括回収</strong><span>分別量↑・異物も少し↑</span></button>
+          <button class="policy" data-policy="campaign"><strong>啓発</strong><span>分別率↑・異物率↓</span></button>
+          <button class="policy" data-policy="upgrade"><strong>設備増強</strong><span>選別能力を20%増強</span></button>
+          <button class="policy" data-policy="regional"><strong>広域連携</strong><span>再資源化能力↑・輸送負荷↑</span></button>
+        </div>
+      </section>
+    </div></aside>
+
+    <main class="canvas-wrap" id="canvasWrap">
+      <canvas id="worldCanvas" aria-label="地域資源循環シミュレーション画面"></canvas>
+      <div class="canvas-toolbar">
+        <button id="fitBtn" class="btn small">全体表示</button>
+        <button id="particlesBtn" class="btn small active">粒子 ON</button>
+        <button id="labelsBtn" class="btn small active">ラベル ON</button>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><i class="legend-dot" style="background:#63b7ff"></i>分別プラ</span>
+        <span class="legend-item"><i class="legend-dot" style="background:#68e0b0"></i>再資源化向け</span>
+        <span class="legend-item"><i class="legend-dot" style="background:#ffc857"></i>再生材</span>
+        <span class="legend-item"><i class="legend-dot" style="background:#89949c"></i>焼却向け</span>
+        <span class="legend-item"><i class="legend-dot" style="background:#ff6b6b"></i>異物・滞留</span>
+      </div>
+      <div class="world-hint">施設・地区をドラッグして配置を変えられます。ホイールで拡大縮小、背景ドラッグで移動。</div>
+    </main>
+
+    <aside class="panel"><div class="panel-inner">
+      <section class="section">
+        <div class="section-title">主要指標 <span class="section-note">累積値</span></div>
+        <div class="kpi-grid">
+          <div id="kpiRecycle" class="kpi"><div class="kpi-label">資源化率</div><div><span class="kpi-value">0.0</span><span class="kpi-unit">%</span></div><div class="kpi-delta">発生量に対する再生材</div></div>
+          <div id="kpiCost" class="kpi"><div class="kpi-label">処理費</div><div><span class="kpi-value">0.0</span><span class="kpi-unit">百万円</span></div><div class="kpi-delta">収集・選別・処理</div></div>
+          <div id="kpiCarbon" class="kpi"><div class="kpi-label">CO₂排出</div><div><span class="kpi-value">0.0</span><span class="kpi-unit">t</span></div><div class="kpi-delta">代替効果控除後</div></div>
+          <div id="kpiBacklog" class="kpi"><div class="kpi-label">滞留量</div><div><span class="kpi-value">0.0</span><span class="kpi-unit">t</span></div><div class="kpi-delta">各施設の在庫超過</div></div>
+          <div id="kpiSatisfaction" class="kpi"><div class="kpi-label">住民満足度</div><div><span class="kpi-value">82</span><span class="kpi-unit">/100</span></div><div class="kpi-delta">利便性・安定性</div></div>
+          <div id="kpiStability" class="kpi"><div class="kpi-label">システム安定性</div><div><span class="kpi-value">100</span><span class="kpi-unit">/100</span></div><div class="kpi-delta">余力・滞留・依存</div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">システム診断</div>
+        <div class="diagnosis">
+          <div id="diagnosisTitle" class="diagnosis-title">安定運用型</div>
+          <div id="diagnosisBody" class="diagnosis-body">シミュレーションを再生すると、現在の構造とボトルネックを診断します。</div>
+          <div id="diagnosisChips" class="chip-row"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">選択オブジェクト</div>
+        <div id="facilityCard" class="facility-card">
+          <div class="facility-head"><div><div class="facility-name">選別施設</div><div class="facility-type">施設をクリックして確認</div></div></div>
+          <div class="facility-bars">
+            <div><div class="mini-bar-label"><span>稼働率</span><span id="selectedUtil">—</span></div><div class="mini-bar"><span id="selectedUtilBar" style="width:0"></span></div></div>
+            <div><div class="mini-bar-label"><span>在庫・滞留</span><span id="selectedStock">—</span></div><div class="mini-bar"><span id="selectedStockBar" style="width:0"></span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">推移 <span class="section-note">資源化率・滞留</span></div>
+        <div class="trend-wrap"><canvas id="trendCanvas"></canvas></div>
+      </section>
+    </div></aside>
+  </div>
+
+  <footer>
+    <div class="log-panel">
+      <div class="footer-head"><span>イベントログ</span><button id="clearLogBtn" class="btn small">クリア</button></div>
+      <div id="logList" class="log-list"></div>
+    </div>
+    <div class="assumption-panel">
+      <div class="footer-head"><span>モデル前提</span><button id="assumptionBtn" class="btn small">詳しく見る</button></div>
+      <div class="assumption-body">教育・構造理解用の簡易モデルです。処理量は日単位、費用・CO₂は代表係数で概算します。実在自治体の計画値や事業性評価には、地域固有の収集条件、契約単価、施設性能、法制度等を別途反映してください。</div>
+    </div>
+  </footer>
+</div>
+
+<div id="helpModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal">
+    <div class="modal-head"><div id="helpTitle" class="modal-title">Circular Flow Garden の使い方</div><button class="btn icon modal-close" aria-label="閉じる">×</button></div>
+    <div class="modal-body">
+      <h3>まず試す</h3>
+      <p>「再生」を押し、左側の分別協力度、異物率、施設能力を動かしてください。粒子の行き先、施設の稼働、滞留、KPIが連動して変化します。</p>
+      <h3>画面操作</h3>
+      <p>施設や地区はドラッグ可能です。背景をドラッグすると表示位置を移動でき、ホイールで拡大・縮小できます。施設をクリックすると、右側に稼働率と在庫が表示されます。</p>
+      <h3>施策カード</h3>
+      <p>施策はもう一度押すと解除できます。一括回収は分別量を増やしますが、異物と施設負荷も増えます。広域連携は受入能力を増やす一方、輸送費とCO₂を増加させます。</p>
+      <h3>保存と持ち出し</h3>
+      <p>「保存」はブラウザ内に状態を保存します。「JSON出力」で別ファイルとして持ち出せます。PNGは現在の箱庭と主要KPIを1枚にまとめます。</p>
+      <h3>注意</h3>
+      <p>本アプリは説明・発想支援用です。係数は代表値であり、正式な予測・行政判断を代替しません。</p>
+    </div>
+  </div>
+</div>
+
+<div id="assumptionModal" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">モデル前提と計算ロジック</div><button class="btn icon modal-close" aria-label="閉じる">×</button></div>
+    <div class="modal-body">
+      <h3>物質収支</h3>
+      <p><code>発生量 = 人口 × 1人1日当たり発生原単位 × 季節係数</code>。分別量は分別協力度、異物量は異物率で算定します。選別・再資源化・焼却は施設能力を上限とし、超過分を在庫として翌日に繰り越します。</p>
+      <h3>簡易係数</h3>
+      <p>収集23,000円/t、選別38,000円/t、再資源化45,000円/t、焼却27,000円/tを基礎値としています。CO₂は輸送、選別、再資源化、焼却、再生材代替効果を簡略化して算定します。</p>
+      <h3>資源化率</h3>
+      <p>累積発生量に対する累積再生材量です。選別効率92%、再資源化歩留まり90%を基本値とします。</p>
+      <h3>満足度・安定性</h3>
+      <p>滞留、異物率、施設稼働率、施策による分別負担、処理先集中を用いた説明用指数です。実測指標ではありません。</p>
+    </div>
+  </div>
+</div>
+<div id="toastStack" class="toast-stack"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'circularFlowGarden.v1';
+  const APP_VERSION = '0.1.0';
+  const SCHEMA_VERSION = '1.0';
+  const COLORS = {
+    separated: '#63b7ff', clean: '#68e0b0', recycled: '#ffc857', residual: '#89949c', contamination: '#ff6b6b', route: 'rgba(190,225,220,.18)'
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const fmt = new Intl.NumberFormat('ja-JP');
+  const format1 = (n) => Number.isFinite(n) ? n.toFixed(1) : '0.0';
+
+  function defaultState() {
+    return {
+      meta: {
+        schemaVersion: SCHEMA_VERSION,
+        appVersion: APP_VERSION,
+        scenarioName: '人口10万人・プラスチック循環モデル',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      simulation: { currentDay: 0, speed: 1, isRunning: false, dayAccumulator: 0 },
+      params: {
+        population: 100000,
+        generationKgPerPersonDay: 0.18,
+        separationRate: 0.65,
+        contaminationRate: 0.10,
+        sortingCapacity: 14,
+        recyclingCapacity: 10,
+        incinerationCapacity: 45,
+        sortingEfficiency: 0.92,
+        recyclingYield: 0.90
+      },
+      policies: { combined: false, campaign: false, upgrade: false, regional: false },
+      inventory: { sorting: 0, recycling: 0, incineration: 0 },
+      cumulative: { generated: 0, collected: 0, recycled: 0, incinerated: 0, cost: 0, emissionsKg: 0 },
+      daily: {
+        generated: 0, collected: 0, unseparated: 0, contamination: 0,
+        sortingProcessed: 0, cleanOutput: 0, sortingResidue: 0,
+        recyclingProcessed: 0, recycledOutput: 0, recyclingResidue: 0,
+        incinerationProcessed: 0, sortingUtil: 0, recyclingUtil: 0, incinerationUtil: 0,
+        cost: 0, emissionsKg: 0
+      },
+      metrics: { recyclingRate: 0, backlog: 0, satisfaction: 82, stability: 100 },
+      history: [],
+      logs: [{ day: 0, text: '基礎シナリオを読み込みました。再生して流れを観察してください。', level: 'good' }],
+      nodes: [
+        { id:'zoneA', kind:'zone', type:'residential', name:'住宅地区 A', x:155, y:165, weight:.42 },
+        { id:'zoneB', kind:'zone', type:'residential', name:'住宅地区 B', x:145, y:390, weight:.33 },
+        { id:'zoneC', kind:'zone', type:'commercial', name:'商業・観光地区', x:330, y:560, weight:.25 },
+        { id:'sorting', kind:'facility', type:'sorting', name:'選別施設', x:510, y:325 },
+        { id:'recycling', kind:'facility', type:'recycling', name:'再資源化施設', x:785, y:185 },
+        { id:'incineration', kind:'facility', type:'incineration', name:'焼却施設', x:810, y:490 },
+        { id:'market', kind:'sink', type:'market', name:'再生材市場', x:1015, y:150 },
+        { id:'energy', kind:'sink', type:'energy', name:'電力・熱利用', x:1020, y:510 }
+      ],
+      ui: { theme:'dark', selectedId:'sorting', showParticles:true, showLabels:true, camera:{ x:0, y:0, zoom:1 }, firstFit:true }
+    };
+  }
+
+  let state = defaultState();
+  let lastTime = performance.now();
+  let autosaveElapsed = 0;
+  let particles = [];
+  let spawnAcc = {};
+  let hoverNodeId = null;
+  let draggingNodeId = null;
+  let panStart = null;
+  let pointerStart = null;
+  let dragMoved = false;
+
+  const canvas = $('worldCanvas');
+  const ctx = canvas.getContext('2d');
+  const trendCanvas = $('trendCanvas');
+  const trendCtx = trendCanvas.getContext('2d');
+  let dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  let canvasCssWidth = 0;
+  let canvasCssHeight = 0;
+
+  const routes = [
+    { key:'A_sort', from:'zoneA', to:'sorting', type:'separated', flow:() => state.daily.collected * .42, curve:-24 },
+    { key:'B_sort', from:'zoneB', to:'sorting', type:'separated', flow:() => state.daily.collected * .33, curve:8 },
+    { key:'C_sort', from:'zoneC', to:'sorting', type:'separated', flow:() => state.daily.collected * .25, curve:32 },
+    { key:'A_inc', from:'zoneA', to:'incineration', type:'residual', flow:() => state.daily.unseparated * .42, curve:-85 },
+    { key:'B_inc', from:'zoneB', to:'incineration', type:'residual', flow:() => state.daily.unseparated * .33, curve:62 },
+    { key:'C_inc', from:'zoneC', to:'incineration', type:'residual', flow:() => state.daily.unseparated * .25, curve:86 },
+    { key:'sort_recycle', from:'sorting', to:'recycling', type:'clean', flow:() => state.daily.cleanOutput, curve:-32 },
+    { key:'sort_inc', from:'sorting', to:'incineration', type:'residual', flow:() => state.daily.sortingResidue, curve:22 },
+    { key:'recycle_market', from:'recycling', to:'market', type:'recycled', flow:() => state.daily.recycledOutput, curve:-8 },
+    { key:'recycle_inc', from:'recycling', to:'incineration', type:'residual', flow:() => state.daily.recyclingResidue, curve:74 },
+    { key:'inc_energy', from:'incineration', to:'energy', type:'energy', flow:() => state.daily.incinerationProcessed * .18, curve:0 }
+  ];
+
+  function node(id) { return state.nodes.find(n => n.id === id); }
+
+  function effectiveParams() {
+    const p = { ...state.params };
+    if (state.policies.combined) {
+      p.separationRate = clamp(p.separationRate + 0.14, 0, 0.98);
+      p.contaminationRate = clamp(p.contaminationRate + 0.035, 0, 0.45);
+    }
+    if (state.policies.campaign) {
+      p.separationRate = clamp(p.separationRate + 0.08, 0, 0.98);
+      p.contaminationRate = clamp(p.contaminationRate - 0.045, 0.01, 0.45);
+    }
+    if (state.policies.upgrade) p.sortingCapacity *= 1.20;
+    if (state.policies.regional) p.recyclingCapacity *= 1.42;
+    return p;
+  }
+
+  function seasonalFactor(day) {
+    return 1 + 0.075 * Math.sin((day - 35) / 365 * Math.PI * 2) + 0.018 * Math.sin(day / 30 * Math.PI * 2);
+  }
+
+  function simulateDay() {
+    const p = effectiveParams();
+    const day = state.simulation.currentDay;
+    const season = seasonalFactor(day);
+    const generated = p.population * p.generationKgPerPersonDay / 1000 * season;
+    const collected = generated * p.separationRate;
+    const unseparated = generated - collected;
+    const contamination = collected * p.contaminationRate;
+
+    const sortingAvailable = state.inventory.sorting + collected;
+    const sortingProcessed = Math.min(sortingAvailable, p.sortingCapacity);
+    state.inventory.sorting = Math.max(0, sortingAvailable - sortingProcessed);
+    const cleanOutput = sortingProcessed * (1 - p.contaminationRate) * p.sortingEfficiency;
+    const sortingResidue = Math.max(0, sortingProcessed - cleanOutput);
+
+    const recyclingAvailable = state.inventory.recycling + cleanOutput;
+    const recyclingProcessed = Math.min(recyclingAvailable, p.recyclingCapacity);
+    state.inventory.recycling = Math.max(0, recyclingAvailable - recyclingProcessed);
+    const recycledOutput = recyclingProcessed * p.recyclingYield;
+    const recyclingResidue = Math.max(0, recyclingProcessed - recycledOutput);
+
+    const incinerationAvailable = state.inventory.incineration + unseparated + sortingResidue + recyclingResidue;
+    const incinerationProcessed = Math.min(incinerationAvailable, p.incinerationCapacity);
+    state.inventory.incineration = Math.max(0, incinerationAvailable - incinerationProcessed);
+
+    const transportDistance = state.policies.regional ? 58 : 24;
+    const collectionCost = collected * 23000;
+    const sortingCost = sortingProcessed * 38000;
+    const recyclingCost = recyclingProcessed * 45000;
+    const incinerationCost = incinerationProcessed * 27000;
+    const transportCost = (collected * 10 + cleanOutput * transportDistance + sortingResidue * 12) * 35;
+    const policyDailyCost = (state.policies.campaign ? 22000000 / 365 : 0) + (state.policies.upgrade ? 70000000 / 365 : 0);
+    const dailyCost = collectionCost + sortingCost + recyclingCost + incinerationCost + transportCost + policyDailyCost;
+
+    const transportCO2 = (collected * 10 + cleanOutput * transportDistance + sortingResidue * 12) * 0.12;
+    const sortingCO2 = sortingProcessed * 40;
+    const recyclingCO2 = recyclingProcessed * 70;
+    const incinerationCO2 = incinerationProcessed * 2500;
+    const avoidedCO2 = recycledOutput * 1700;
+    const dailyEmissionsKg = Math.max(0, transportCO2 + sortingCO2 + recyclingCO2 + incinerationCO2 - avoidedCO2);
+
+    state.daily = {
+      generated, collected, unseparated, contamination,
+      sortingProcessed, cleanOutput, sortingResidue,
+      recyclingProcessed, recycledOutput, recyclingResidue,
+      incinerationProcessed,
+      sortingUtil: sortingProcessed / Math.max(.01, p.sortingCapacity),
+      recyclingUtil: recyclingProcessed / Math.max(.01, p.recyclingCapacity),
+      incinerationUtil: incinerationProcessed / Math.max(.01, p.incinerationCapacity),
+      cost: dailyCost, emissionsKg: dailyEmissionsKg
+    };
+
+    const c = state.cumulative;
+    c.generated += generated;
+    c.collected += collected;
+    c.recycled += recycledOutput;
+    c.incinerated += incinerationProcessed;
+    c.cost += dailyCost;
+    c.emissionsKg += dailyEmissionsKg;
+
+    const backlog = state.inventory.sorting + state.inventory.recycling + state.inventory.incineration;
+    const maxUtil = Math.max(state.daily.sortingUtil, state.daily.recyclingUtil, state.daily.incinerationUtil);
+    const burden = Math.max(0, p.separationRate - .65) * 18;
+    const satisfaction = clamp(86 - backlog * 0.85 - p.contaminationRate * 22 - burden + (state.policies.campaign ? 3 : 0), 0, 100);
+    const concentrationPenalty = state.policies.regional ? 11 : 5;
+    const stability = clamp(100 - backlog * 1.15 - Math.max(0, maxUtil - .82) * 58 - concentrationPenalty, 0, 100);
+    const recyclingRate = c.generated > 0 ? c.recycled / c.generated * 100 : 0;
+    state.metrics = { recyclingRate, backlog, satisfaction, stability };
+
+    state.simulation.currentDay += 1;
+
+    if (state.simulation.currentDay % 30 === 0) {
+      state.history.push({
+        day: state.simulation.currentDay,
+        recyclingRate, backlog, satisfaction, stability,
+        sortingUtil: state.daily.sortingUtil,
+        recyclingUtil: state.daily.recyclingUtil,
+        incinerationUtil: state.daily.incinerationUtil
+      });
+      if (state.history.length > 120) state.history.shift();
+      monthlyLog();
+    }
+
+    detectThresholdEvents();
+  }
+
+  let thresholdFlags = {};
+  function detectThresholdEvents() {
+    const checks = [
+      ['sortingBacklog', state.inventory.sorting > 5, '選別施設の前段在庫が5tを超えました。能力増強か分別量の調整が必要です。', 'bad'],
+      ['recyclingBacklog', state.inventory.recycling > 5, '再資源化施設への搬出待ちが増えています。処理先確保がボトルネックです。', 'warn'],
+      ['incBacklog', state.inventory.incineration > 5, '焼却施設でも滞留が発生しています。システム全体の処理余力が不足しています。', 'bad'],
+      ['highContam', effectiveParams().contaminationRate > .20, '異物率が20%を超え、選別残渣と処理費が増えています。', 'warn'],
+      ['goodRecycle', state.metrics.recyclingRate > 55, '累積資源化率が55%を超えました。施設余力と費用のバランスも確認してください。', 'good']
+    ];
+    for (const [key, condition, text, level] of checks) {
+      if (condition && !thresholdFlags[key]) { addLog(text, level); thresholdFlags[key] = true; }
+      if (!condition) thresholdFlags[key] = false;
+    }
+  }
+
+  function monthlyLog() {
+    const p = effectiveParams();
+    const backlog = state.metrics.backlog;
+    if (backlog > 1) {
+      addLog(`月末時点の滞留は ${format1(backlog)} t。選別 ${format1(state.inventory.sorting)} t、再資源化 ${format1(state.inventory.recycling)} t、焼却 ${format1(state.inventory.incineration)} tです。`, backlog > 10 ? 'bad' : 'warn');
+    } else if (Math.max(state.daily.sortingUtil, state.daily.recyclingUtil) > .9) {
+      addLog('滞留は抑えられていますが、施設稼働率が90%を超えています。変動への余力は小さめです。', 'warn');
+    } else {
+      addLog(`安定運用。資源化率 ${format1(state.metrics.recyclingRate)}%、施設余力も確保されています。`, 'good');
+    }
+  }
+
+  function addLog(text, level = '') {
+    state.logs.push({ day: state.simulation.currentDay, text, level });
+    if (state.logs.length > 500) state.logs.shift();
+    renderLogs();
+  }
+
+  function resetSimulation(preservePositions = true) {
+    const old = state;
+    const fresh = defaultState();
+    fresh.params = { ...old.params };
+    fresh.policies = { ...old.policies };
+    fresh.meta.scenarioName = old.meta.scenarioName;
+    fresh.ui.theme = old.ui.theme;
+    fresh.ui.showParticles = old.ui.showParticles;
+    fresh.ui.showLabels = old.ui.showLabels;
+    if (preservePositions) fresh.nodes = old.nodes.map(n => ({ ...n }));
+    state = fresh;
+    particles = [];
+    spawnAcc = {};
+    thresholdFlags = {};
+    syncControlsFromState();
+    updateAllUI();
+    fitWorld();
+  }
+
+  function getDateParts(day) {
+    const start = new Date(2026, 3, 1);
+    start.setDate(start.getDate() + day);
+    return { year:start.getFullYear(), month:start.getMonth()+1, date:start.getDate() };
+  }
+
+  function formatDay(day) {
+    const d = getDateParts(day);
+    return `${d.year}/${String(d.month).padStart(2,'0')}/${String(d.date).padStart(2,'0')}`;
+  }
+
+  function routePoint(route, t) {
+    const a = node(route.from), b = node(route.to);
+    if (!a || !b) return { x:0, y:0 };
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const cx = (a.x + b.x) / 2 + nx * route.curve;
+    const cy = (a.y + b.y) / 2 + ny * route.curve;
+    const mt = 1 - t;
+    return {
+      x: mt*mt*a.x + 2*mt*t*cx + t*t*b.x,
+      y: mt*mt*a.y + 2*mt*t*cy + t*t*b.y
+    };
+  }
+
+  function spawnParticles(dtSec) {
+    if (!state.simulation.isRunning || !state.ui.showParticles) return;
+    const animFactor = clamp(Math.sqrt(state.simulation.speed), 1, 4.2);
+    for (const r of routes) {
+      const flow = Math.max(0, r.flow());
+      if (flow < .03) continue;
+      const rate = Math.min(16, .55 + flow * .55) * animFactor;
+      spawnAcc[r.key] = (spawnAcc[r.key] || 0) + dtSec * rate;
+      while (spawnAcc[r.key] >= 1 && particles.length < 850) {
+        spawnAcc[r.key] -= 1;
+        particles.push({
+          routeKey:r.key,
+          type:r.type,
+          t: Math.random() * .05,
+          speed:(.075 + Math.random()*.045) * clamp(animFactor,1,2.8),
+          size: 2.2 + Math.random()*2.3,
+          wobble: Math.random()*Math.PI*2,
+          alpha:.68 + Math.random()*.30
+        });
+      }
+    }
+  }
+
+  function updateParticles(dtSec) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.t += p.speed * dtSec;
+      if (p.t >= 1) particles.splice(i,1);
+    }
+  }
+
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvasCssWidth = Math.max(1, rect.width);
+    canvasCssHeight = Math.max(1, rect.height);
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = Math.round(canvasCssWidth * dpr), h = Math.round(canvasCssHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const tr = trendCanvas.getBoundingClientRect();
+    const tw = Math.max(1, Math.round(tr.width*dpr)), th = Math.max(1, Math.round(tr.height*dpr));
+    if (trendCanvas.width !== tw || trendCanvas.height !== th) { trendCanvas.width = tw; trendCanvas.height = th; }
+    if (state.ui.firstFit) { state.ui.firstFit = false; fitWorld(); }
+  }
+
+  function worldToScreen(x,y) {
+    const c = state.ui.camera;
+    return { x:(x + c.x) * c.zoom, y:(y + c.y) * c.zoom };
+  }
+  function screenToWorld(x,y) {
+    const c = state.ui.camera;
+    return { x:x/c.zoom - c.x, y:y/c.zoom - c.y };
+  }
+
+  function fitWorld() {
+    if (!canvasCssWidth || !canvasCssHeight) return;
+    const bounds = { minX:60, minY:65, maxX:1090, maxY:635 };
+    const zx = (canvasCssWidth - 80) / (bounds.maxX - bounds.minX);
+    const zy = (canvasCssHeight - 70) / (bounds.maxY - bounds.minY);
+    const zoom = clamp(Math.min(zx, zy), .48, 1.35);
+    state.ui.camera.zoom = zoom;
+    state.ui.camera.x = (canvasCssWidth/zoom - (bounds.minX+bounds.maxX))/2;
+    state.ui.camera.y = (canvasCssHeight/zoom - (bounds.minY+bounds.maxY))/2;
+  }
+
+  function draw() {
+    resizeCanvas();
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,canvasCssWidth,canvasCssHeight);
+    drawBackground();
+    ctx.save();
+    const c = state.ui.camera;
+    ctx.translate(c.x*c.zoom, c.y*c.zoom);
+    ctx.scale(c.zoom,c.zoom);
+    drawGround();
+    drawRoutes();
+    drawNodes();
+    drawBacklogs();
+    if (state.ui.showParticles) drawParticles();
+    drawEffects();
+    ctx.restore();
+    drawTooltip();
+    drawTrend();
+  }
+
+  function drawBackground() {
+    const g = ctx.createRadialGradient(canvasCssWidth*.52, canvasCssHeight*.42, 40, canvasCssWidth*.52, canvasCssHeight*.42, Math.max(canvasCssWidth,canvasCssHeight)*.72);
+    const stress = 1 - state.metrics.stability/100;
+    g.addColorStop(0, stress > .4 ? `rgba(76,38,40,${.25*stress})` : 'rgba(24,58,57,.62)');
+    g.addColorStop(1, document.body.classList.contains('light') ? '#dce9e5' : '#081216');
+    ctx.fillStyle=g; ctx.fillRect(0,0,canvasCssWidth,canvasCssHeight);
+
+    const c=state.ui.camera;
+    const grid=44*c.zoom;
+    if (grid>15) {
+      ctx.strokeStyle=document.body.classList.contains('light')?'rgba(29,74,66,.08)':'rgba(170,220,211,.055)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      const ox=((c.x*c.zoom)%grid+grid)%grid, oy=((c.y*c.zoom)%grid+grid)%grid;
+      for(let x=ox;x<canvasCssWidth;x+=grid){ctx.moveTo(x,0);ctx.lineTo(x,canvasCssHeight)}
+      for(let y=oy;y<canvasCssHeight;y+=grid){ctx.moveTo(0,y);ctx.lineTo(canvasCssWidth,y)}
+      ctx.stroke();
+    }
+  }
+
+  function drawGround() {
+    roundRect(ctx, 55, 55, 1055, 590, 30);
+    ctx.fillStyle = document.body.classList.contains('light') ? 'rgba(245,250,247,.82)' : 'rgba(13,28,32,.74)';
+    ctx.fill();
+    ctx.strokeStyle = document.body.classList.contains('light') ? 'rgba(35,83,75,.14)' : 'rgba(178,222,214,.12)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.save(); ctx.globalAlpha=.25;
+    for(let i=0;i<32;i++){
+      const x=80+(i*91)%990, y=90+(i*137)%510;
+      ctx.fillStyle=i%3===0?'#315f57':'#284b45';
+      ctx.beginPath(); ctx.arc(x,y,2+(i%4),0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function routeStyle(type) {
+    if(type==='separated') return COLORS.separated;
+    if(type==='clean') return COLORS.clean;
+    if(type==='recycled') return COLORS.recycled;
+    if(type==='energy') return '#d9b4ff';
+    return COLORS.residual;
+  }
+
+  function drawRoutes() {
+    for (const r of routes) {
+      const a=node(r.from), b=node(r.to); if(!a||!b)continue;
+      const flow=Math.max(0,r.flow());
+      const p0=routePoint(r,0), p1=routePoint(r,.5), p2=routePoint(r,1);
+      ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.quadraticCurveTo(p1.x*2-(p0.x+p2.x)/2,p1.y*2-(p0.y+p2.y)/2,p2.x,p2.y);
+      ctx.strokeStyle=document.body.classList.contains('light')?'rgba(47,79,76,.18)':'rgba(190,225,220,.14)';
+      ctx.lineWidth=6+Math.min(8,flow*.4); ctx.lineCap='round'; ctx.stroke();
+      ctx.strokeStyle=routeStyle(r.type); ctx.globalAlpha=.27+Math.min(.35,flow*.02); ctx.lineWidth=1.5+Math.min(4.5,flow*.22); ctx.stroke(); ctx.globalAlpha=1;
+      drawArrowOnRoute(r,.72,routeStyle(r.type),.55);
+    }
+  }
+
+  function drawArrowOnRoute(r,t,color,alpha){
+    const p=routePoint(r,t), q=routePoint(r,Math.min(.995,t+.015));
+    const ang=Math.atan2(q.y-p.y,q.x-p.x);
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(ang);ctx.globalAlpha=alpha;ctx.fillStyle=color;
+    ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-5,-4);ctx.lineTo(-5,4);ctx.closePath();ctx.fill();ctx.restore();
+  }
+
+  function drawNodes() {
+    const sorted=[...state.nodes].sort((a,b)=>a.y-b.y);
+    for(const n of sorted) {
+      ctx.save();
+      const selected=state.ui.selectedId===n.id;
+      const hover=hoverNodeId===n.id;
+      if(n.kind==='zone') drawZone(n,selected,hover);
+      else if(n.kind==='facility') drawFacility(n,selected,hover);
+      else drawSink(n,selected,hover);
+      ctx.restore();
+    }
+  }
+
+  function drawZone(n,selected,hover){
+    const w=n.type==='commercial'?116:104, h=n.type==='commercial'?76:72;
+    ctx.save();ctx.translate(n.x,n.y);
+    if(selected||hover){ctx.shadowColor=selected?'rgba(113,224,188,.75)':'rgba(112,183,255,.5)';ctx.shadowBlur=18;}
+    roundRect(ctx,-w/2,-h/2,w,h,16);ctx.fillStyle=n.type==='commercial'?'rgba(112,183,255,.20)':'rgba(104,224,176,.15)';ctx.fill();ctx.strokeStyle=selected?'#71e0bc':'rgba(185,226,218,.22)';ctx.lineWidth=selected?2:1;ctx.stroke();
+    ctx.shadowBlur=0;
+    const base=n.type==='commercial'?'#6096ba':'#4f8b72';
+    for(let i=0;i<5;i++){
+      const bx=-38+(i%3)*32+(i>2?12:0), by=-13+Math.floor(i/3)*30;
+      ctx.fillStyle=base;ctx.fillRect(bx,by,18,18);
+      ctx.fillStyle='rgba(235,255,249,.65)';ctx.fillRect(bx+4,by+5,4,4);ctx.fillRect(bx+11,by+5,4,4);
+      ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(bx,by+18,18,4);
+    }
+    drawNodeLabel(n,0,h/2+20);
+    ctx.restore();
+  }
+
+  function facilityStatus(id){
+    if(id==='sorting') return { util:state.daily.sortingUtil, stock:state.inventory.sorting, cap:effectiveParams().sortingCapacity };
+    if(id==='recycling') return { util:state.daily.recyclingUtil, stock:state.inventory.recycling, cap:effectiveParams().recyclingCapacity };
+    return { util:state.daily.incinerationUtil, stock:state.inventory.incineration, cap:effectiveParams().incinerationCapacity };
+  }
+
+  function drawFacility(n,selected,hover){
+    const s=facilityStatus(n.id); const overload=s.stock>1 || s.util>.98;
+    const pulse=1+(overload?Math.sin(performance.now()/160)*.022:0);
+    ctx.save();ctx.translate(n.x,n.y);ctx.scale(pulse,pulse);
+    if(selected||hover||overload){ctx.shadowColor=overload?'rgba(255,107,107,.75)':selected?'rgba(113,224,188,.75)':'rgba(112,183,255,.45)';ctx.shadowBlur=overload?22:16;}
+    const w=126,h=86;
+    roundRect(ctx,-w/2,-h/2,w,h,17);
+    let fill='rgba(70,103,106,.44)';
+    if(n.type==='sorting')fill='rgba(82,135,134,.44)';
+    if(n.type==='recycling')fill='rgba(64,143,105,.44)';
+    if(n.type==='incineration')fill='rgba(116,104,104,.43)';
+    ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=overload?COLORS.contamination:selected?'#71e0bc':'rgba(205,235,228,.27)';ctx.lineWidth=overload||selected?2:1;ctx.stroke();
+    ctx.shadowBlur=0;
+
+    if(n.type==='sorting'){
+      ctx.fillStyle='#86c8c0';ctx.fillRect(-38,-12,76,29);ctx.fillStyle='#315b5a';
+      for(let i=0;i<4;i++)ctx.fillRect(-31+i*19,-6,11,9);
+      ctx.strokeStyle='rgba(226,255,249,.6)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-41,22);ctx.lineTo(38,22);ctx.stroke();
+    } else if(n.type==='recycling'){
+      ctx.strokeStyle='#77d2a2';ctx.lineWidth=5;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(0,1,22,-.6,1.3);ctx.stroke();ctx.beginPath();ctx.arc(0,1,22,1.5,3.25);ctx.stroke();ctx.beginPath();ctx.arc(0,1,22,3.45,5.25);ctx.stroke();
+      ctx.fillStyle='#77d2a2';ctx.beginPath();ctx.moveTo(21,10);ctx.lineTo(30,3);ctx.lineTo(20,-1);ctx.fill();
+    } else {
+      ctx.fillStyle='#8e7777';ctx.fillRect(-39,-8,64,28);ctx.fillStyle='#6c5d5d';ctx.fillRect(24,-31,18,51);
+      ctx.fillStyle=overload?'#ff9a72':'#ddad79';ctx.beginPath();ctx.moveTo(-25,13);ctx.quadraticCurveTo(-17,-18,-7,13);ctx.quadraticCurveTo(2,-10,10,13);ctx.fill();
+    }
+    const utilPct=clamp(s.util*100,0,120);
+    ctx.fillStyle='rgba(0,0,0,.28)';roundRect(ctx,-42,31,84,6,3);ctx.fill();
+    ctx.fillStyle=utilPct>98?COLORS.contamination:utilPct>85?'#ffbf69':'#71e0bc';roundRect(ctx,-42,31,84*clamp(utilPct/100,0,1),6,3);ctx.fill();
+    drawNodeLabel(n,0,h/2+21,`${Math.round(utilPct)}%`);
+    ctx.restore();
+  }
+
+  function drawSink(n,selected,hover){
+    ctx.save();ctx.translate(n.x,n.y);
+    if(selected||hover){ctx.shadowColor='rgba(255,200,87,.55)';ctx.shadowBlur=14;}
+    ctx.beginPath();ctx.arc(0,0,37,0,Math.PI*2);ctx.fillStyle=n.type==='market'?'rgba(255,200,87,.15)':'rgba(217,180,255,.13)';ctx.fill();ctx.strokeStyle=selected?'#71e0bc':'rgba(220,233,226,.22)';ctx.stroke();ctx.shadowBlur=0;
+    if(n.type==='market'){
+      ctx.fillStyle='#ffc857';ctx.fillRect(-17,-12,34,25);ctx.fillStyle='#9d7420';ctx.fillRect(-11,-20,22,8);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.moveTo(-7,1);ctx.lineTo(0,8);ctx.lineTo(12,-7);ctx.stroke();
+    } else {
+      ctx.strokeStyle='#d9b4ff';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-18,7);ctx.lineTo(-5,-8);ctx.lineTo(4,9);ctx.lineTo(18,-10);ctx.stroke();
+    }
+    drawNodeLabel(n,0,57);
+    ctx.restore();
+  }
+
+  function drawNodeLabel(n,x,y,sub=''){
+    if(!state.ui.showLabels)return;
+    ctx.font='700 12px "Noto Sans JP", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const txt=n.name;const width=Math.max(66,ctx.measureText(txt).width+18);
+    ctx.fillStyle='rgba(7,17,21,.76)';roundRect(ctx,x-width/2,y-11,width,22,9);ctx.fill();
+    ctx.fillStyle='#eaf7f3';ctx.fillText(txt,x,y);
+    if(sub){ctx.font='600 9px sans-serif';ctx.fillStyle='#9fb8b3';ctx.fillText(sub,x,y+16);}
+  }
+
+  function drawBacklogs(){
+    const list=[['sorting',state.inventory.sorting],['recycling',state.inventory.recycling],['incineration',state.inventory.incineration]];
+    for(const [id,amount] of list){
+      if(amount<.05)continue; const n=node(id); const count=Math.min(34,Math.ceil(amount*1.25));
+      ctx.save();ctx.translate(n.x,n.y);
+      for(let i=0;i<count;i++){
+        const col=i%7,row=Math.floor(i/7);const x=-48+col*14+(row%2)*5,y=52+row*11;
+        const pulse=.82+.18*Math.sin(performance.now()/230+i);
+        ctx.globalAlpha=.68*pulse;ctx.fillStyle=i%4===0?COLORS.contamination:'#d98758';ctx.beginPath();ctx.arc(x,y,4.5,0,Math.PI*2);ctx.fill();
+      }
+      ctx.globalAlpha=1;ctx.fillStyle='rgba(7,17,21,.82)';roundRect(ctx,-32,57+Math.ceil(count/7)*11,64,20,8);ctx.fill();ctx.fillStyle='#ffb08b';ctx.font='700 10px sans-serif';ctx.textAlign='center';ctx.fillText(`${format1(amount)} t`,0,71+Math.ceil(count/7)*11);
+      ctx.restore();
+    }
+  }
+
+  function drawParticles(){
+    const routeMap=new Map(routes.map(r=>[r.key,r]));
+    for(const p of particles){
+      const r=routeMap.get(p.routeKey);if(!r)continue; const pos=routePoint(r,p.t);
+      const wobble=Math.sin(p.wobble+p.t*18)*2.2;
+      const q=routePoint(r,Math.min(.999,p.t+.01)); const dx=q.x-pos.x,dy=q.y-pos.y,len=Math.hypot(dx,dy)||1;
+      const x=pos.x-dy/len*wobble,y=pos.y+dx/len*wobble;
+      ctx.globalAlpha=p.alpha;ctx.fillStyle=routeStyle(p.type);ctx.beginPath();ctx.arc(x,y,p.size,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=.18;ctx.beginPath();ctx.arc(x,y,p.size*2.3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    }
+  }
+
+  function drawEffects(){
+    const stress=state.metrics.backlog;
+    if(stress>.5){
+      const targets=[['sorting',state.inventory.sorting],['recycling',state.inventory.recycling],['incineration',state.inventory.incineration]];
+      for(const [id,amount] of targets){
+        if(amount<.5)continue;const n=node(id);
+        for(let i=0;i<Math.min(8,Math.ceil(amount/3));i++){
+          const t=(performance.now()/1800+i*.17)%1;ctx.globalAlpha=(1-t)*.16;ctx.strokeStyle=COLORS.contamination;ctx.lineWidth=2;ctx.beginPath();ctx.arc(n.x,n.y,62+t*46,0,Math.PI*2);ctx.stroke();
+        }
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+
+  function drawTooltip(){
+    if(!hoverNodeId)return;const n=node(hoverNodeId);if(!n)return;
+    const s=worldToScreen(n.x,n.y);const x=clamp(s.x+18,10,canvasCssWidth-185),y=clamp(s.y-46,10,canvasCssHeight-72);
+    ctx.save();ctx.fillStyle='rgba(5,15,19,.91)';roundRect(ctx,x,y,175,54,10);ctx.fill();ctx.strokeStyle='rgba(190,228,220,.18)';ctx.stroke();ctx.fillStyle='#eef8f5';ctx.font='700 11px sans-serif';ctx.textAlign='left';ctx.fillText(n.name,x+10,y+18);
+    ctx.fillStyle='#9eb7b2';ctx.font='10px sans-serif';
+    if(n.kind==='facility'){const f=facilityStatus(n.id);ctx.fillText(`稼働 ${Math.round(f.util*100)}% / 在庫 ${format1(f.stock)} t`,x+10,y+37);}else if(n.kind==='zone'){ctx.fillText(`発生構成比 ${Math.round(n.weight*100)}%`,x+10,y+37);}else{ctx.fillText(n.type==='market'?'再生材の出口':'焼却エネルギー利用',x+10,y+37);}
+    ctx.restore();
+  }
+
+  function roundRect(c,x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();
+  }
+
+  function hitNode(worldX,worldY){
+    for(let i=state.nodes.length-1;i>=0;i--){const n=state.nodes[i];const rx=n.kind==='facility'?70:n.kind==='zone'?62:45;const ry=n.kind==='facility'?52:n.kind==='zone'?48:45;if(Math.abs(worldX-n.x)<=rx&&Math.abs(worldY-n.y)<=ry)return n;}
+    return null;
+  }
+
+  canvas.addEventListener('pointerdown',e=>{
+    canvas.setPointerCapture(e.pointerId);
+    const rect=canvas.getBoundingClientRect(); const sx=e.clientX-rect.left,sy=e.clientY-rect.top; const w=screenToWorld(sx,sy); const n=hitNode(w.x,w.y);
+    pointerStart={sx,sy,wx:w.x,wy:w.y};dragMoved=false;
+    if(n){draggingNodeId=n.id;state.ui.selectedId=n.id;updateSelectedCard();}
+    else{panStart={sx,sy,cx:state.ui.camera.x,cy:state.ui.camera.y};}
+    canvas.classList.add('dragging');
+  });
+  canvas.addEventListener('pointermove',e=>{
+    const rect=canvas.getBoundingClientRect();const sx=e.clientX-rect.left,sy=e.clientY-rect.top;const w=screenToWorld(sx,sy);
+    if(pointerStart&&Math.hypot(sx-pointerStart.sx,sy-pointerStart.sy)>3)dragMoved=true;
+    if(draggingNodeId){const n=node(draggingNodeId);n.x=clamp(w.x,80,1080);n.y=clamp(w.y,80,620);}
+    else if(panStart){state.ui.camera.x=panStart.cx+(sx-panStart.sx)/state.ui.camera.zoom;state.ui.camera.y=panStart.cy+(sy-panStart.sy)/state.ui.camera.zoom;}
+    else{const h=hitNode(w.x,w.y);hoverNodeId=h?h.id:null;}
+  });
+  function endPointer(e){
+    if(draggingNodeId&&dragMoved) scheduleSave();
+    draggingNodeId=null;panStart=null;pointerStart=null;canvas.classList.remove('dragging');
+    try{canvas.releasePointerCapture(e.pointerId)}catch(_){ }
+  }
+  canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+  canvas.addEventListener('pointerleave',()=>{if(!draggingNodeId&&!panStart)hoverNodeId=null;});
+  canvas.addEventListener('wheel',e=>{
+    e.preventDefault();const rect=canvas.getBoundingClientRect();const sx=e.clientX-rect.left,sy=e.clientY-rect.top;const before=screenToWorld(sx,sy);const factor=e.deltaY<0?1.1:.9;state.ui.camera.zoom=clamp(state.ui.camera.zoom*factor,.35,2.4);const after=screenToWorld(sx,sy);state.ui.camera.x+=after.x-before.x;state.ui.camera.y+=after.y-before.y;
+  },{passive:false});
+
+  function drawTrend(){
+    const rect=trendCanvas.getBoundingClientRect();const w=rect.width,h=rect.height;if(!w||!h)return;
+    trendCtx.setTransform(dpr,0,0,dpr,0,0);trendCtx.clearRect(0,0,w,h);
+    trendCtx.fillStyle=document.body.classList.contains('light')?'rgba(247,251,249,.9)':'rgba(9,20,24,.65)';trendCtx.fillRect(0,0,w,h);
+    const hist=state.history.length?state.history:[{recyclingRate:state.metrics.recyclingRate,backlog:state.metrics.backlog}];
+    const pad=13;const n=Math.max(2,hist.length);const xFor=i=>pad+(w-pad*2)*(i/(n-1));
+    trendCtx.strokeStyle=document.body.classList.contains('light')?'rgba(42,78,73,.12)':'rgba(210,235,229,.08)';trendCtx.lineWidth=1;
+    for(let i=1;i<4;i++){const y=pad+(h-pad*2)*i/4;trendCtx.beginPath();trendCtx.moveTo(pad,y);trendCtx.lineTo(w-pad,y);trendCtx.stroke();}
+    function line(key,max,color){trendCtx.beginPath();hist.forEach((d,i)=>{const x=xFor(i),y=h-pad-clamp(d[key]/max,0,1)*(h-pad*2);i?trendCtx.lineTo(x,y):trendCtx.moveTo(x,y)});trendCtx.strokeStyle=color;trendCtx.lineWidth=2;trendCtx.stroke();}
+    line('recyclingRate',80,COLORS.clean);const maxBack=Math.max(10,...hist.map(d=>d.backlog));line('backlog',maxBack,COLORS.contamination);
+    trendCtx.fillStyle=document.body.classList.contains('light')?'#56706c':'#94aaa6';trendCtx.font='9px sans-serif';trendCtx.fillText('資源化率',12,13);trendCtx.fillStyle=COLORS.clean;trendCtx.fillRect(57,8,10,3);trendCtx.fillStyle=document.body.classList.contains('light')?'#56706c':'#94aaa6';trendCtx.fillText('滞留',78,13);trendCtx.fillStyle=COLORS.contamination;trendCtx.fillRect(104,8,10,3);
+  }
+
+  function diagnosis() {
+    const p=effectiveParams(), m=state.metrics, d=state.daily;
+    const chips=[];let title='バランス循環型',body='資源化、費用、施設余力のバランスが比較的取れています。';
+    if(m.backlog>15){title='処理能力不足型';body='複数工程に在庫が蓄積しています。上流の分別拡大に、下流能力が追いついていません。';chips.push(['能力超過','bad']);}
+    else if(state.inventory.recycling>3){title='再資源化先ボトルネック型';body='選別は進んでいますが、再資源化工程が出口を塞いでいます。搬出先の複線化が有効です。';chips.push(['出口不足','warn']);}
+    else if(state.inventory.sorting>3){title='選別逼迫型';body='分別収集量が選別能力を上回っています。分別拡大と施設整備の時間差が表れています。';chips.push(['選別逼迫','bad']);}
+    else if(m.recyclingRate>58 && state.cumulative.cost/Math.max(1,state.simulation.currentDay)>900000){title='高資源化・高コスト型';body='資源化性能は高い一方、収集・選別・再資源化費が大きくなっています。';chips.push(['資源化優先','good'],['費用注意','warn']);}
+    else if(state.policies.regional){title='広域連携安定型';body='広域の処理能力を活用して安定性を高めています。輸送距離と単一処理先への依存が課題です。';chips.push(['広域連携','good'],['輸送負荷','warn']);}
+    else if(d.incinerationProcessed>0 && d.incinerationProcessed>Math.max(.01,d.recycledOutput)*2.2){title='焼却安定依存型';body='運用は安定していますが、未分別分が多く、焼却への依存が高い構造です。';chips.push(['焼却依存','warn']);}
+    else if(state.simulation.currentDay<2){title='安定運用型';body='シミュレーションを再生すると、現在の構造とボトルネックを診断します。';}
+    if(p.contaminationRate>.18)chips.push(['異物率高','warn']);
+    if(m.stability>80)chips.push(['余力あり','good']);
+    if(Math.max(d.sortingUtil,d.recyclingUtil,d.incinerationUtil)>.9)chips.push(['高稼働','warn']);
+    return {title,body,chips};
+  }
+
+  function updateAllUI(){
+    updateDate();updateKPIs();updateDiagnosis();updateSelectedCard();renderLogs();syncPolicyButtons();
+  }
+
+  function updateDate(){
+    const d=getDateParts(state.simulation.currentDay);$('simDate').textContent=`${d.year}年${d.month}月`;$('simDay').textContent=`${d.date}日・経過 ${state.simulation.currentDay}日`;
+    $('statusDot').classList.toggle('running',state.simulation.isRunning);$('playBtn').textContent=state.simulation.isRunning?'Ⅱ 一時停止':'▶ 再生';
+  }
+
+  function setKpi(id,value,className=''){
+    const el=$(id);el.classList.remove('good','warn','bad');if(className)el.classList.add(className);el.querySelector('.kpi-value').textContent=value;
+  }
+  function updateKPIs(){
+    const m=state.metrics,c=state.cumulative;
+    setKpi('kpiRecycle',format1(m.recyclingRate),m.recyclingRate>50?'good':m.recyclingRate<30?'warn':'');
+    setKpi('kpiCost',format1(c.cost/1e6),c.cost>500e6?'warn':'');
+    setKpi('kpiCarbon',format1(c.emissionsKg/1000),c.emissionsKg/1000>10000?'warn':'');
+    setKpi('kpiBacklog',format1(m.backlog),m.backlog>10?'bad':m.backlog>1?'warn':'good');
+    setKpi('kpiSatisfaction',Math.round(m.satisfaction),m.satisfaction<50?'bad':m.satisfaction<70?'warn':'good');
+    setKpi('kpiStability',Math.round(m.stability),m.stability<45?'bad':m.stability<70?'warn':'good');
+  }
+  function updateDiagnosis(){const d=diagnosis();$('diagnosisTitle').textContent=d.title;$('diagnosisBody').textContent=d.body;$('diagnosisChips').innerHTML=d.chips.map(([t,c])=>`<span class="chip ${c}">${t}</span>`).join('');}
+
+  function updateSelectedCard(){
+    const n=node(state.ui.selectedId)||node('sorting');
+    const card=$('facilityCard');card.querySelector('.facility-name').textContent=n.name;card.querySelector('.facility-type').textContent=n.kind==='facility'?'処理施設':n.kind==='zone'?'発生地区':'システム出口';
+    let util=0,stock=0,cap=1;
+    if(n.kind==='facility'){const f=facilityStatus(n.id);util=f.util;stock=f.stock;cap=f.cap;}
+    else if(n.kind==='zone'){util=n.weight;stock=state.daily.generated*n.weight;cap=Math.max(1,state.daily.generated);}
+    $('selectedUtil').textContent=n.kind==='facility'
+      ? `${Math.round(util*100)}%`
+      : n.kind==='zone' ? `構成 ${Math.round(n.weight*100)}%` : 'システム出口';
+    $('selectedStock').textContent=n.kind==='facility'
+      ? `${format1(stock)} t`
+      : n.kind==='zone' ? `${format1(stock)} t/日` : '—';
+    const up=clamp(util*100,0,100),sp=clamp(stock/Math.max(5,cap)*100,0,100);
+    const ub=$('selectedUtilBar'),sb=$('selectedStockBar');ub.style.width=`${up}%`;sb.style.width=`${sp}%`;ub.className=util>.98?'bad':util>.85?'warn':'';sb.className=stock>10?'bad':stock>1?'warn':'';
+  }
+
+  function renderLogs(){
+    const list=$('logList');list.innerHTML=state.logs.slice(-80).reverse().map(l=>`<div class="log-item"><span class="log-date">${formatDay(l.day)}</span><span class="log-text ${l.level||''}">${escapeHtml(l.text)}</span></div>`).join('');
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+
+  function syncControlsFromState(){
+    $('scenarioName').value=state.meta.scenarioName;
+    const map={population:'population',generationKgPerPersonDay:'generation',separationRate:'separation',contaminationRate:'contamination',sortingCapacity:'sortingCap',recyclingCapacity:'recyclingCap',incinerationCapacity:'incinerationCap'};
+    for(const [k,id] of Object.entries(map))$(id).value=state.params[k];
+    updateControlLabels();document.body.classList.toggle('light',state.ui.theme==='light');
+    document.querySelectorAll('.speed-btn').forEach(b=>b.classList.toggle('active',Number(b.dataset.speed)===state.simulation.speed));
+    $('particlesBtn').classList.toggle('active',state.ui.showParticles);$('particlesBtn').textContent=`粒子 ${state.ui.showParticles?'ON':'OFF'}`;
+    $('labelsBtn').classList.toggle('active',state.ui.showLabels);$('labelsBtn').textContent=`ラベル ${state.ui.showLabels?'ON':'OFF'}`;
+  }
+  function updateControlLabels(){
+    $('populationVal').textContent=`${fmt.format(state.params.population)}人`;
+    $('generationVal').textContent=`${state.params.generationKgPerPersonDay.toFixed(2)} kg/人日`;
+    $('separationVal').textContent=`${Math.round(state.params.separationRate*100)}%`;
+    $('contaminationVal').textContent=`${Math.round(state.params.contaminationRate*100)}%`;
+    $('sortingCapVal').textContent=`${format1(effectiveParams().sortingCapacity)} t/日`;
+    $('recyclingCapVal').textContent=`${format1(effectiveParams().recyclingCapacity)} t/日`;
+    $('incinerationCapVal').textContent=`${format1(effectiveParams().incinerationCapacity)} t/日`;
+  }
+  function syncPolicyButtons(){document.querySelectorAll('.policy').forEach(b=>b.classList.toggle('on',!!state.policies[b.dataset.policy]));updateControlLabels();}
+
+  function bindRange(id,key,parser=Number){
+    $(id).addEventListener('input',e=>{state.params[key]=parser(e.target.value);updateControlLabels();scheduleSave();});
+  }
+  bindRange('population','population');bindRange('generation','generationKgPerPersonDay');bindRange('separation','separationRate');bindRange('contamination','contaminationRate');bindRange('sortingCap','sortingCapacity');bindRange('recyclingCap','recyclingCapacity');bindRange('incinerationCap','incinerationCapacity');
+
+  $('scenarioName').addEventListener('change',e=>{state.meta.scenarioName=e.target.value.trim()||'名称未設定';scheduleSave();});
+  $('playBtn').addEventListener('click',togglePlay);
+  document.querySelectorAll('.speed-btn').forEach(b=>b.addEventListener('click',()=>{state.simulation.speed=Number(b.dataset.speed);document.querySelectorAll('.speed-btn').forEach(x=>x.classList.toggle('active',x===b));scheduleSave();}));
+  document.querySelectorAll('.policy').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.policy;state.policies[k]=!state.policies[k];
+    const names={combined:'プラスチック一括回収',campaign:'分別啓発キャンペーン',upgrade:'選別設備増強',regional:'広域連携'};
+    addLog(`${names[k]}を${state.policies[k]?'開始':'解除'}しました。`,state.policies[k]?'good':'');syncPolicyButtons();scheduleSave();
+  }));
+  $('fitBtn').addEventListener('click',fitWorld);
+  $('particlesBtn').addEventListener('click',()=>{state.ui.showParticles=!state.ui.showParticles;if(!state.ui.showParticles)particles=[];syncControlsFromState();});
+  $('labelsBtn').addEventListener('click',()=>{state.ui.showLabels=!state.ui.showLabels;syncControlsFromState();});
+  $('themeBtn').addEventListener('click',()=>{state.ui.theme=state.ui.theme==='dark'?'light':'dark';syncControlsFromState();scheduleSave();});
+  $('clearLogBtn').addEventListener('click',()=>{state.logs=[];renderLogs();});
+  $('saveBtn').addEventListener('click',()=>saveState(true));
+  $('exportBtn').addEventListener('click',exportJSON);
+  $('importBtn').addEventListener('click',()=>$('importFile').click());
+  $('importFile').addEventListener('change',importJSON);
+  $('pngBtn').addEventListener('click',exportPNG);
+  $('resetBtn').addEventListener('click',()=>{if(confirm('シミュレーション結果を初期化します。現在の配置と入力条件は残しますか？')){resetSimulation(true);toast('シミュレーションを初期化しました。');}});
+  $('helpBtn').addEventListener('click',()=>$('helpModal').classList.add('open'));
+  $('assumptionBtn').addEventListener('click',()=>$('assumptionModal').classList.add('open'));
+  document.querySelectorAll('.modal-close').forEach(b=>b.addEventListener('click',()=>b.closest('.modal-backdrop').classList.remove('open')));
+  document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+  function togglePlay(){state.simulation.isRunning=!state.simulation.isRunning;updateDate();scheduleSave();}
+  document.addEventListener('keydown',e=>{
+    if(e.target.matches('input,textarea,select'))return;
+    if(e.code==='Space'){e.preventDefault();togglePlay();}
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveState(true);}
+    if(e.key==='Escape')document.querySelectorAll('.modal-backdrop.open').forEach(m=>m.classList.remove('open'));
+  });
+
+  let saveTimer=null;
+  function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveState(false),500);}
+  function serializableState(){
+    const clone=JSON.parse(JSON.stringify(state));clone.simulation.isRunning=false;clone.simulation.dayAccumulator=0;clone.meta.updatedAt=new Date().toISOString();return clone;
+  }
+  function saveState(showToast=false){
+    try{state.meta.scenarioName=$('scenarioName').value.trim()||state.meta.scenarioName;state.meta.updatedAt=new Date().toISOString();localStorage.setItem(STORAGE_KEY,JSON.stringify(serializableState()));if(showToast)toast('ブラウザに保存しました。');}
+    catch(err){toast('保存に失敗しました。ブラウザの保存領域を確認してください。');console.error(err);}
+  }
+  function loadState(){
+    try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;const data=JSON.parse(raw);if(data?.meta?.schemaVersion!==SCHEMA_VERSION)return false;state={...defaultState(),...data,simulation:{...defaultState().simulation,...data.simulation,isRunning:false},ui:{...defaultState().ui,...data.ui,camera:{...defaultState().ui.camera,...data.ui?.camera}},daily:{...defaultState().daily,...data.daily},metrics:{...defaultState().metrics,...data.metrics}};return true;}catch(err){console.error(err);return false;}
+  }
+
+  function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);}
+  function safeName(){return (state.meta.scenarioName||'circular_flow_garden').replace(/[\\/:*?"<>|]/g,'_').slice(0,80);}
+  function exportJSON(){const blob=new Blob([JSON.stringify(serializableState(),null,2)],{type:'application/json'});downloadBlob(blob,`${safeName()}_${formatDay(state.simulation.currentDay).replaceAll('/','')}.json`);toast('JSONを出力しました。');}
+  async function importJSON(e){
+    const file=e.target.files?.[0];e.target.value='';if(!file)return;
+    try{const data=JSON.parse(await file.text());if(data?.meta?.schemaVersion!==SCHEMA_VERSION)throw new Error('schema');if(!Array.isArray(data.nodes)||!data.params)throw new Error('format');
+      localStorage.setItem(`${STORAGE_KEY}.backup`,JSON.stringify(serializableState()));state={...defaultState(),...data,simulation:{...defaultState().simulation,...data.simulation,isRunning:false},ui:{...defaultState().ui,...data.ui,camera:{...defaultState().ui.camera,...data.ui?.camera}}};particles=[];spawnAcc={};syncControlsFromState();updateAllUI();toast('JSONを読み込みました。');scheduleSave();
+    }catch(err){console.error(err);toast('JSONを読み込めませんでした。形式またはバージョンを確認してください。');}
+  }
+
+  function exportPNG(){
+    draw();
+    const out=document.createElement('canvas');out.width=1600;out.height=900;const g=out.getContext('2d');
+    const grad=g.createLinearGradient(0,0,1600,900);grad.addColorStop(0,'#0b171b');grad.addColorStop(1,'#102c2a');g.fillStyle=grad;g.fillRect(0,0,1600,900);
+    g.fillStyle='#eff9f5';g.font='700 34px sans-serif';g.fillText(state.meta.scenarioName,50,58);g.fillStyle='#9db7b2';g.font='16px sans-serif';g.fillText(`Circular Flow Garden  |  ${formatDay(state.simulation.currentDay)}`,52,86);
+    g.drawImage(canvas,0,0,canvas.width,canvas.height,45,115,1110,720);
+    g.fillStyle='rgba(18,34,39,.94)';g.strokeStyle='rgba(190,230,220,.16)';roundRect(g,1185,115,370,720,24);g.fill();g.stroke();
+    g.fillStyle='#9db7b2';g.font='700 14px sans-serif';g.fillText('主要指標',1220,160);
+    const items=[['資源化率',`${format1(state.metrics.recyclingRate)} %`],['累積処理費',`${format1(state.cumulative.cost/1e6)} 百万円`],['CO₂排出',`${format1(state.cumulative.emissionsKg/1000)} t`],['滞留量',`${format1(state.metrics.backlog)} t`],['住民満足度',`${Math.round(state.metrics.satisfaction)} / 100`],['安定性',`${Math.round(state.metrics.stability)} / 100`]];
+    items.forEach((it,i)=>{const y=205+i*82;g.fillStyle='rgba(255,255,255,.035)';roundRect(g,1215,y-28,310,64,14);g.fill();g.fillStyle='#9db7b2';g.font='13px sans-serif';g.fillText(it[0],1232,y-5);g.fillStyle='#eff9f5';g.font='700 25px sans-serif';g.fillText(it[1],1232,y+24);});
+    const d=diagnosis();g.fillStyle='#71e0bc';g.font='700 18px sans-serif';g.fillText(d.title,1220,735);g.fillStyle='#a9bfba';g.font='13px sans-serif';wrapText(g,d.body,1220,765,295,20);
+    out.toBlob(blob=>{if(blob)downloadBlob(blob,`${safeName()}_${formatDay(state.simulation.currentDay).replaceAll('/','')}.png`)},'image/png');toast('PNGを出力しました。');
+  }
+  function wrapText(g,text,x,y,maxWidth,lineHeight){const words=[...text];let line='';for(const ch of words){const test=line+ch;if(g.measureText(test).width>maxWidth&&line){g.fillText(line,x,y);line=ch;y+=lineHeight}else line=test}if(line)g.fillText(line,x,y);}
+
+  function toast(text){const el=document.createElement('div');el.className='toast';el.textContent=text;$('toastStack').appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(-5px)';setTimeout(()=>el.remove(),220)},2500);}
+
+  function frame(now){
+    const dt=Math.min(.08,(now-lastTime)/1000);lastTime=now;
+    if(state.simulation.isRunning){
+      const daysPerSecond={1:1.2,4:4.5,12:12,30:28}[state.simulation.speed]||1.2;
+      state.simulation.dayAccumulator+=dt*daysPerSecond;
+      let loops=0;while(state.simulation.dayAccumulator>=1&&loops<40){simulateDay();state.simulation.dayAccumulator-=1;loops++;}
+      autosaveElapsed+=dt;if(autosaveElapsed>30){autosaveElapsed=0;saveState(false);}
+    }
+    spawnParticles(dt);updateParticles(dt);draw();
+    if(state.simulation.isRunning || Math.floor(now/250)!==Math.floor((now-dt*1000)/250))updateAllUI();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize',resizeCanvas);
+  const loaded=loadState();syncControlsFromState();updateAllUI();requestAnimationFrame(frame);
+  if(loaded)toast('前回の保存状態を読み込みました。');
+})();
+</script>
+</body>
+</html>
