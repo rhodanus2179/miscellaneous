@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07111d">
+  <title>GPS Track Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111d;
+      --panel: #0c1a29;
+      --panel2: #102337;
+      --line: #203b52;
+      --text: #edf7ff;
+      --muted: #96aebf;
+      --accent: #72e6ff;
+      --good: #78e6ad;
+      --warn: #ffd37b;
+      --danger: #ff8d9b;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 80% -10%, rgba(65, 173, 220, .18), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+    }
+    button, input { font: inherit; }
+    button { touch-action: manipulation; }
+    .app { width: min(1100px, 100%); margin: 0 auto; padding: 24px clamp(16px, 4vw, 36px) 48px; }
+    header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 20px; }
+    .eyebrow { margin: 0 0 5px; color: var(--accent); font-size: 12px; letter-spacing: .16em; font-weight: 700; }
+    h1 { margin: 0; font-size: clamp(32px, 7vw, 58px); letter-spacing: -.045em; line-height: .95; }
+    .lead { max-width: 650px; margin: 14px 0 0; color: var(--muted); line-height: 1.65; }
+    .secure { flex: 0 0 auto; border: 1px solid var(--line); padding: 8px 10px; border-radius: 999px; color: var(--muted); font-size: 12px; }
+    .secure.ok { color: var(--good); border-color: rgba(120, 230, 173, .45); }
+    .secure.ng { color: var(--danger); border-color: rgba(255, 141, 155, .45); }
+    .toolbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--panel2);
+      color: var(--text);
+      border-radius: 12px;
+      min-height: 48px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .btn:hover { border-color: #3f6784; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: #12394d; border-color: #28687f; color: #dffaff; }
+    .btn.stop { background: #3c2029; border-color: #72404c; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .statusbar { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--line); background: rgba(12, 26, 41, .78); border-radius: 12px; margin-bottom: 14px; color: var(--muted); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #6d8291; box-shadow: 0 0 0 4px rgba(109, 130, 145, .12); flex: 0 0 auto; }
+    .statusbar.tracking .dot { background: var(--good); box-shadow: 0 0 0 4px rgba(120, 230, 173, .12); }
+    .statusbar.error .dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 141, 155, .12); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(310px, .65fr); gap: 14px; }
+    .panel { border: 1px solid var(--line); background: rgba(12, 26, 41, .88); border-radius: 16px; overflow: hidden; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { margin: 0; font-size: 15px; letter-spacing: .04em; }
+    .panel-head span { color: var(--muted); font-size: 12px; }
+    .canvas-wrap { position: relative; aspect-ratio: 16 / 10; min-height: 330px; background: #07131f; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .canvas-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 30px; color: var(--muted); text-align: center; line-height: 1.7; pointer-events: none; }
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+    .metric { background: var(--panel); padding: 16px; min-height: 92px; }
+    .metric .label { color: var(--muted); font-size: 12px; }
+    .metric .value { margin-top: 6px; font-size: clamp(20px, 4vw, 29px); font-variant-numeric: tabular-nums; letter-spacing: -.025em; overflow-wrap: anywhere; }
+    .metric .unit { font-size: 12px; color: var(--muted); margin-left: 4px; }
+    .side { display: grid; gap: 14px; align-content: start; }
+    .coords { padding: 16px; display: grid; gap: 12px; }
+    .coord-row { display: grid; grid-template-columns: 74px 1fr; gap: 10px; align-items: baseline; }
+    .coord-row span:first-child { color: var(--muted); font-size: 12px; }
+    .coord-row strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+    .settings { padding: 16px; display: grid; gap: 15px; }
+    label.range { display: grid; gap: 7px; }
+    .range-top { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 13px; }
+    .switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 16px; }
+    .note { margin-top: 14px; border: 1px solid #4e462a; background: rgba(79, 67, 27, .18); border-radius: 12px; padding: 12px 14px; color: #d7cfae; font-size: 13px; line-height: 1.6; }
+    .log { max-height: 210px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    .log-entry { display: grid; grid-template-columns: 78px 1fr; gap: 9px; padding: 8px 14px; border-bottom: 1px solid rgba(32, 59, 82, .55); }
+    .log-entry time { color: #6e8ca0; }
+    .log-entry span { color: #bdd0dc; overflow-wrap: anywhere; }
+    footer { margin-top: 18px; color: #6f8797; font-size: 12px; line-height: 1.6; }
+    @media (max-width: 800px) {
+      header { display: block; }
+      .secure { display: inline-block; margin-top: 14px; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .layout { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .canvas-wrap { min-height: 285px; }
+    }
+    @media (max-width: 440px) {
+      .app { padding-top: 18px; }
+      .toolbar { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">GEOLOCATION API PLAYGROUND</p>
+        <h1>GPS Track Lab</h1>
+        <p class="lead">ブラウザの位置情報APIを観察する練習用アプリ。現在地を1回取得するだけでも、継続追跡して移動距離や軌跡を確認することもできます。GPSログは明示的に書き出すまで端末内にも保存しません。</p>
+      </div>
+      <div id="secureBadge" class="secure">環境を確認中</div>
+    </header>
+
+    <div class="toolbar">
+      <button id="onceBtn" class="btn" type="button">現在地を1回取得</button>
+      <button id="startBtn" class="btn primary" type="button">追跡を開始</button>
+      <button id="stopBtn" class="btn stop" type="button" disabled>追跡を停止</button>
+      <button id="clearBtn" class="btn" type="button">ログを消去</button>
+    </div>
+
+    <div id="statusbar" class="statusbar" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="statusText">待機中。位置情報はまだ取得していません。</span>
+    </div>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>RELATIVE TRACK</h2>
+          <span id="trackScale">軌跡なし</span>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="trackCanvas"></canvas>
+          <div id="canvasEmpty" class="canvas-empty">追跡を開始して移動すると、最初の地点を基準に<br>GPS座標の相対的な軌跡を描きます。</div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="label">累積距離</div><div class="value"><span id="distance">0</span><span class="unit">m</span></div></div>
+          <div class="metric"><div class="label">経過時間</div><div class="value" id="elapsed">00:00</div></div>
+          <div class="metric"><div class="label">取得点</div><div class="value"><span id="samples">0</span><span class="unit">points</span></div></div>
+          <div class="metric"><div class="label">現在の精度</div><div class="value"><span id="accuracy">—</span><span class="unit">m</span></div></div>
+          <div class="metric"><div class="label">速度</div><div class="value"><span id="speed">—</span><span class="unit">km/h</span></div></div>
+          <div class="metric"><div class="label">方位</div><div class="value"><span id="heading">—</span><span class="unit">°</span></div></div>
+        </div>
+      </div>
+
+      <aside class="side">
+        <section class="panel">
+          <div class="panel-head"><h2>LATEST POSITION</h2><span id="latestTime">—</span></div>
+          <div class="coords">
+            <div class="coord-row"><span>緯度</span><strong id="latitude">—</strong></div>
+            <div class="coord-row"><span>経度</span><strong id="longitude">—</strong></div>
+            <div class="coord-row"><span>高度</span><strong id="altitude">—</strong></div>
+            <div class="coord-row"><span>精度</span><strong id="accuracyDetail">—</strong></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>TRACK SETTINGS</h2><span>練習用</span></div>
+          <div class="settings">
+            <label class="range">
+              <span class="range-top"><span>採用する最大精度</span><strong><span id="accuracyLimitValue">60</span> m</strong></span>
+              <input id="accuracyLimit" type="range" min="10" max="200" step="5" value="60">
+            </label>
+            <label class="switch"><span>高精度位置情報を要求</span><input id="highAccuracy" type="checkbox" checked></label>
+            <label class="switch"><span>追跡中は画面をスリープさせない</span><input id="wakeLockToggle" type="checkbox" checked></label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><h2>EXPORT</h2><span>保存は手動</span></div>
+          <div class="actions">
+            <button id="geojsonBtn" class="btn" type="button" disabled>GeoJSON</button>
+            <button id="csvBtn" class="btn" type="button" disabled>CSV</button>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <div class="note">ブラウザの位置情報取得には通常 HTTPS と利用者の許可が必要です。スマホでは画面ロックやバックグラウンド化によって追跡が停止・間引きされることがあります。このアプリはその制約も含めて挙動を観察するための練習用です。</div>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-head"><h2>EVENT LOG</h2><span>最新50件</span></div>
+      <div id="eventLog" class="log" aria-live="polite"></div>
+    </section>
+
+    <footer>GPS Track Lab v0.1 · Geolocation API + Screen Wake Lock API · 外部ライブラリなし</footer>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        onceBtn: $('onceBtn'), startBtn: $('startBtn'), stopBtn: $('stopBtn'), clearBtn: $('clearBtn'),
+        statusbar: $('statusbar'), statusText: $('statusText'), secureBadge: $('secureBadge'),
+        canvas: $('trackCanvas'), canvasEmpty: $('canvasEmpty'), trackScale: $('trackScale'),
+        distance: $('distance'), elapsed: $('elapsed'), samples: $('samples'), accuracy: $('accuracy'),
+        speed: $('speed'), heading: $('heading'), latitude: $('latitude'), longitude: $('longitude'),
+        altitude: $('altitude'), accuracyDetail: $('accuracyDetail'), latestTime: $('latestTime'),
+        accuracyLimit: $('accuracyLimit'), accuracyLimitValue: $('accuracyLimitValue'), highAccuracy: $('highAccuracy'),
+        wakeLockToggle: $('wakeLockToggle'), geojsonBtn: $('geojsonBtn'), csvBtn: $('csvBtn'), eventLog: $('eventLog')
+      };
+
+      const state = {
+        watchId: null,
+        points: [],
+        totalDistanceM: 0,
+        startedAt: null,
+        timerId: null,
+        wakeLock: null,
+        tracking: false
+      };
+
+      const ctx = els.canvas.getContext('2d');
+
+      function log(message) {
+        const row = document.createElement('div');
+        row.className = 'log-entry';
+        const now = new Date();
+        const time = document.createElement('time');
+        time.textContent = now.toLocaleTimeString('ja-JP', { hour12: false });
+        const text = document.createElement('span');
+        text.textContent = message;
+        row.append(time, text);
+        els.eventLog.prepend(row);
+        while (els.eventLog.children.length > 50) els.eventLog.lastElementChild.remove();
+      }
+
+      function setStatus(message, type = '') {
+        els.statusText.textContent = message;
+        els.statusbar.className = `statusbar${type ? ' ' + type : ''}`;
+      }
+
+      function formatNum(value, digits = 1) {
+        return Number.isFinite(value) ? value.toFixed(digits) : '—';
+      }
+
+      function haversine(a, b) {
+        const R = 6371008.8;
+        const toRad = Math.PI / 180;
+        const dLat = (b.lat - a.lat) * toRad;
+        const dLon = (b.lon - a.lon) * toRad;
+        const lat1 = a.lat * toRad;
+        const lat2 = b.lat * toRad;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+      }
+
+      function positionToPoint(position) {
+        const c = position.coords;
+        return {
+          lat: c.latitude,
+          lon: c.longitude,
+          accuracy: c.accuracy,
+          altitude: c.altitude,
+          altitudeAccuracy: c.altitudeAccuracy,
+          heading: c.heading,
+          speed: c.speed,
+          timestamp: position.timestamp
+        };
+      }
+
+      function updateLatest(point) {
+        els.latitude.textContent = point.lat.toFixed(7);
+        els.longitude.textContent = point.lon.toFixed(7);
+        els.altitude.textContent = Number.isFinite(point.altitude) ? `${point.altitude.toFixed(1)} m` : '取得不可';
+        els.accuracyDetail.textContent = `${point.accuracy.toFixed(1)} m`;
+        els.accuracy.textContent = point.accuracy.toFixed(1);
+        els.speed.textContent = Number.isFinite(point.speed) ? (point.speed * 3.6).toFixed(1) : '—';
+        els.heading.textContent = Number.isFinite(point.heading) ? point.heading.toFixed(0) : '—';
+        els.latestTime.textContent = new Date(point.timestamp).toLocaleTimeString('ja-JP', { hour12: false });
+      }
+
+      function handlePosition(position, mode) {
+        const point = positionToPoint(position);
+        updateLatest(point);
+
+        if (mode === 'once') {
+          setStatus(`現在地を取得しました。精度 ±${point.accuracy.toFixed(1)} m。`);
+          log(`現在地を1回取得: ${point.lat.toFixed(6)}, ${point.lon.toFixed(6)} / ±${point.accuracy.toFixed(1)}m`);
+          return;
+        }
+
+        const limit = Number(els.accuracyLimit.value);
+        if (point.accuracy > limit) {
+          setStatus(`受信中。精度 ±${point.accuracy.toFixed(1)} m のため軌跡には不採用です。`, 'tracking');
+          log(`不採用: 精度 ±${point.accuracy.toFixed(1)}m > 設定 ${limit}m`);
+          return;
+        }
+
+        const prev = state.points[state.points.length - 1];
+        if (prev) state.totalDistanceM += haversine(prev, point);
+        state.points.push(point);
+        els.distance.textContent = state.totalDistanceM < 1000 ? state.totalDistanceM.toFixed(1) : (state.totalDistanceM / 1000).toFixed(3);
+        els.distance.nextElementSibling.textContent = state.totalDistanceM < 1000 ? 'm' : 'km';
+        els.samples.textContent = state.points.length;
+        els.geojsonBtn.disabled = false;
+        els.csvBtn.disabled = false;
+        els.canvasEmpty.hidden = true;
+        setStatus(`追跡中。最新点の精度 ±${point.accuracy.toFixed(1)} m。`, 'tracking');
+        log(`採用 #${state.points.length}: ${point.lat.toFixed(6)}, ${point.lon.toFixed(6)} / ±${point.accuracy.toFixed(1)}m`);
+        drawTrack();
+      }
+
+      function handleError(error, mode) {
+        const names = { 1: '位置情報の利用が許可されていません', 2: '位置情報を取得できません', 3: '位置情報の取得がタイムアウトしました' };
+        const message = names[error.code] || error.message || '位置情報エラー';
+        setStatus(message, 'error');
+        log(`${mode === 'once' ? '単発取得' : '追跡'}エラー: ${message}`);
+        if (mode === 'track' && error.code === 1) stopTracking();
+      }
+
+      function geolocationOptions() {
+        return {
+          enableHighAccuracy: els.highAccuracy.checked,
+          maximumAge: 0,
+          timeout: 15000
+        };
+      }
+
+      function getOnce() {
+        if (!navigator.geolocation) return unsupported();
+        setStatus('現在地を取得しています…');
+        log(`単発取得を要求（高精度: ${els.highAccuracy.checked ? 'ON' : 'OFF'}）`);
+        navigator.geolocation.getCurrentPosition(
+          (position) => handlePosition(position, 'once'),
+          (error) => handleError(error, 'once'),
+          geolocationOptions()
+        );
+      }
+
+      async function requestWakeLock() {
+        if (!els.wakeLockToggle.checked || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+        try {
+          state.wakeLock = await navigator.wakeLock.request('screen');
+          state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
+          log('Screen Wake Lock を取得');
+        } catch (error) {
+          log(`Wake Lock を取得できません: ${error.name}`);
+        }
+      }
+
+      async function releaseWakeLock() {
+        if (!state.wakeLock) return;
+        try { await state.wakeLock.release(); } catch (_) { /* no-op */ }
+        state.wakeLock = null;
+      }
+
+      function startTracking() {
+        if (!navigator.geolocation) return unsupported();
+        if (state.watchId !== null) return;
+        state.tracking = true;
+        state.startedAt = Date.now();
+        els.startBtn.disabled = true;
+        els.stopBtn.disabled = false;
+        setStatus('GPSを待っています…', 'tracking');
+        log(`watchPosition() 開始（高精度: ${els.highAccuracy.checked ? 'ON' : 'OFF'}）`);
+        state.watchId = navigator.geolocation.watchPosition(
+          (position) => handlePosition(position, 'track'),
+          (error) => handleError(error, 'track'),
+          geolocationOptions()
+        );
+        state.timerId = window.setInterval(updateElapsed, 1000);
+        updateElapsed();
+        requestWakeLock();
+      }
+
+      function stopTracking() {
+        if (state.watchId !== null) navigator.geolocation.clearWatch(state.watchId);
+        state.watchId = null;
+        state.tracking = false;
+        if (state.timerId !== null) window.clearInterval(state.timerId);
+        state.timerId = null;
+        els.startBtn.disabled = false;
+        els.stopBtn.disabled = true;
+        releaseWakeLock();
+        setStatus(state.points.length ? `追跡を停止しました。${state.points.length}点を保持しています。` : '追跡を停止しました。');
+        log('watchPosition() 停止');
+      }
+
+      function updateElapsed() {
+        if (!state.startedAt) return;
+        const sec = Math.floor((Date.now() - state.startedAt) / 1000);
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        els.elapsed.textContent = h > 0
+          ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+          : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function clearTrack() {
+        if (state.tracking) stopTracking();
+        state.points = [];
+        state.totalDistanceM = 0;
+        state.startedAt = null;
+        els.distance.textContent = '0';
+        els.distance.nextElementSibling.textContent = 'm';
+        els.elapsed.textContent = '00:00';
+        els.samples.textContent = '0';
+        els.geojsonBtn.disabled = true;
+        els.csvBtn.disabled = true;
+        els.canvasEmpty.hidden = false;
+        els.trackScale.textContent = '軌跡なし';
+        clearCanvas();
+        setStatus('ログを消去しました。位置情報はまだ保持していません。');
+        log('軌跡ログを消去');
+      }
+
+      function resizeCanvas() {
+        const rect = els.canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.round(rect.width * dpr));
+        const height = Math.max(1, Math.round(rect.height * dpr));
+        if (els.canvas.width !== width || els.canvas.height !== height) {
+          els.canvas.width = width;
+          els.canvas.height = height;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return { width: rect.width, height: rect.height };
+      }
+
+      function clearCanvas() {
+        const { width, height } = resizeCanvas();
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#07131f';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(114, 230, 255, .08)';
+        ctx.lineWidth = 1;
+        const grid = 40;
+        for (let x = grid; x < width; x += grid) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+        for (let y = grid; y < height; y += grid) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+      }
+
+      function toLocalMeters(point, origin) {
+        const latRad = origin.lat * Math.PI / 180;
+        return {
+          x: (point.lon - origin.lon) * 111320 * Math.cos(latRad),
+          y: (point.lat - origin.lat) * 110540
+        };
+      }
+
+      function drawTrack() {
+        const size = resizeCanvas();
+        clearCanvas();
+        if (!state.points.length) return;
+
+        const origin = state.points[0];
+        const local = state.points.map((p) => toLocalMeters(p, origin));
+        let minX = Math.min(...local.map(p => p.x));
+        let maxX = Math.max(...local.map(p => p.x));
+        let minY = Math.min(...local.map(p => p.y));
+        let maxY = Math.max(...local.map(p => p.y));
+        const spanX = Math.max(maxX - minX, 10);
+        const spanY = Math.max(maxY - minY, 10);
+        const padMeters = Math.max(spanX, spanY) * .12 + 3;
+        minX -= padMeters; maxX += padMeters; minY -= padMeters; maxY += padMeters;
+        const usableW = Math.max(1, size.width - 48);
+        const usableH = Math.max(1, size.height - 48);
+        const scale = Math.min(usableW / (maxX - minX), usableH / (maxY - minY));
+        const offsetX = (size.width - (maxX - minX) * scale) / 2;
+        const offsetY = (size.height - (maxY - minY) * scale) / 2;
+        const project = (p) => ({
+          x: offsetX + (p.x - minX) * scale,
+          y: size.height - (offsetY + (p.y - minY) * scale)
+        });
+
+        if (local.length > 1) {
+          ctx.beginPath();
+          local.forEach((p, i) => {
+            const q = project(p);
+            if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+          });
+          ctx.strokeStyle = '#72e6ff';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+
+        local.forEach((p, i) => {
+          const q = project(p);
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, i === local.length - 1 ? 5 : 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = i === 0 ? '#78e6ad' : i === local.length - 1 ? '#ffd37b' : '#d9f7ff';
+          ctx.fill();
+        });
+
+        const widthMeters = Math.max(maxX - minX, maxY - minY);
+        els.trackScale.textContent = `表示範囲 約 ${widthMeters < 1000 ? widthMeters.toFixed(0) + ' m' : (widthMeters / 1000).toFixed(2) + ' km'}`;
+      }
+
+      function download(filename, text, type) {
+        const blob = new Blob([text], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportGeoJSON() {
+        const feature = {
+          type: 'Feature',
+          properties: {
+            app: 'GPS Track Lab',
+            recordedAt: new Date().toISOString(),
+            pointCount: state.points.length,
+            distanceMeters: Number(state.totalDistanceM.toFixed(2))
+          },
+          geometry: {
+            type: 'LineString',
+            coordinates: state.points.map(p => [p.lon, p.lat, Number.isFinite(p.altitude) ? p.altitude : 0])
+          }
+        };
+        download(`gps-track-${timestampForFile()}.geojson`, JSON.stringify(feature, null, 2), 'application/geo+json');
+        log('GeoJSONを書き出し');
+      }
+
+      function exportCsv() {
+        const header = ['timestamp','latitude','longitude','accuracy_m','altitude_m','altitude_accuracy_m','speed_mps','heading_deg'];
+        const rows = state.points.map(p => [
+          new Date(p.timestamp).toISOString(), p.lat, p.lon, p.accuracy,
+          Number.isFinite(p.altitude) ? p.altitude : '',
+          Number.isFinite(p.altitudeAccuracy) ? p.altitudeAccuracy : '',
+          Number.isFinite(p.speed) ? p.speed : '',
+          Number.isFinite(p.heading) ? p.heading : ''
+        ]);
+        const csv = [header, ...rows].map(row => row.join(',')).join('\n');
+        download(`gps-track-${timestampForFile()}.csv`, '\uFEFF' + csv, 'text/csv;charset=utf-8');
+        log('CSVを書き出し');
+      }
+
+      function timestampForFile() {
+        return new Date().toISOString().replace(/[:.]/g, '-');
+      }
+
+      function unsupported() {
+        setStatus('このブラウザは Geolocation API に対応していません。', 'error');
+        log('Geolocation API 非対応');
+      }
+
+      function checkEnvironment() {
+        const geo = 'geolocation' in navigator;
+        if (window.isSecureContext && geo) {
+          els.secureBadge.textContent = 'HTTPS / GEOLOCATION OK';
+          els.secureBadge.className = 'secure ok';
+        } else {
+          els.secureBadge.textContent = !window.isSecureContext ? 'HTTPS REQUIRED' : 'GEOLOCATION UNSUPPORTED';
+          els.secureBadge.className = 'secure ng';
+        }
+        if (!geo) {
+          els.onceBtn.disabled = true;
+          els.startBtn.disabled = true;
+        }
+        log(`環境: secure=${window.isSecureContext}, geolocation=${geo}, wakeLock=${'wakeLock' in navigator}`);
+      }
+
+      els.onceBtn.addEventListener('click', getOnce);
+      els.startBtn.addEventListener('click', startTracking);
+      els.stopBtn.addEventListener('click', stopTracking);
+      els.clearBtn.addEventListener('click', clearTrack);
+      els.accuracyLimit.addEventListener('input', () => { els.accuracyLimitValue.textContent = els.accuracyLimit.value; });
+      els.geojsonBtn.addEventListener('click', exportGeoJSON);
+      els.csvBtn.addEventListener('click', exportCsv);
+      window.addEventListener('resize', drawTrack);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && state.tracking) requestWakeLock();
+        log(`visibilitychange: ${document.visibilityState}`);
+      });
+      window.addEventListener('beforeunload', () => {
+        if (state.watchId !== null) navigator.geolocation.clearWatch(state.watchId);
+      });
+
+      checkEnvironment();
+      clearCanvas();
+    })();
+  </script>
+</body>
+</html>
