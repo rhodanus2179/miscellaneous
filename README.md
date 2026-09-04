@@ -46,6 +46,14 @@ Claude Webに近いチャットUIで、Chrome内蔵のGemini Nanoを利用する
 - v0.1 Design: [`nano-workbench/DESIGN.md`](./nano-workbench/DESIGN.md)
 - v0.2 Design: [`nano-workbench/DESIGN_v0.2.md`](./nano-workbench/DESIGN_v0.2.md)
 
+### Nano Redactor
+
+Chrome内蔵Gemini Nanoで貼り付け文章を上から順に確認し、個人情報に該当する原文部分だけを端末内でマスクする匿名化補助ツール。LLMは検出だけを担当し、実際の置換はJavaScriptが完全一致範囲に対して行う。
+
+- App: [`nano-redactor/`](./nano-redactor/)
+- README: [`nano-redactor/README.md`](./nano-redactor/README.md)
+- Design: [`nano-redactor/DESIGN.md`](./nano-redactor/DESIGN.md)
+
 ### Hash Calculator
 
 テキストまたはファイルからSHA-256 / SHA-384 / SHA-512を計算する、端末内完結型のハッシュ計算ツール。テキストでは改行コードの統一、ファイルではドラッグ＆ドロップに対応する。
