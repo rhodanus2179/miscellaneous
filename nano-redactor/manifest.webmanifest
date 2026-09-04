@@ -1,0 +1,11 @@
+{
+  "name": "Nano Redactor",
+  "short_name": "Redactor",
+  "description": "Gemini Nanoで個人情報だけを端末内マスキング",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f9",
+  "theme_color": "#f5f7f9",
+  "lang": "ja"
+}

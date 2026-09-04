@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f9">
+  <meta name="description" content="Chrome内蔵Gemini Nanoで、貼り付けた文章の個人情報だけを端末内でマスクします。">
+  <title>Nano Redactor</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">ON-DEVICE PRIVACY TOOL</p>
+        <h1>Nano Redactor</h1>
+        <p class="lead">端末内AIで、個人情報だけをマスク。</p>
+      </div>
+      <div class="status-card" aria-live="polite">
+        <div class="status-line">
+          <span class="status-dot" data-model-dot data-tone="neutral" aria-hidden="true"></span>
+          <span data-model-status>端末内AIを確認中…</span>
+        </div>
+        <p data-privacy-note>文章はこのアプリから外部サーバーへ送信しません。初回のみChromeがモデルを取得する場合があります。</p>
+      </div>
+    </header>
+
+    <section class="panel" aria-labelledby="input-heading">
+      <div class="section-heading">
+        <div><span class="step">01</span><h2 id="input-heading">文章を貼り付ける</h2></div>
+        <button id="clearButton" class="button button-quiet" type="button">クリア</button>
+      </div>
+      <label class="sr-only" for="sourceText">マスクする文章</label>
+      <textarea id="sourceText" class="text-area" spellcheck="false" placeholder="メール、議事メモ、報告書などの文章を貼り付けてください。"></textarea>
+      <div class="controls">
+        <label><span>検出モード</span><select id="modeSelect"><option value="standard" selected>標準</option><option value="strict">厳格</option></select></label>
+        <label><span>マスク形式</span><select id="styleSelect"><option value="labels" selected>種別ラベル</option><option value="serial">連番ラベル</option><option value="block">黒塗り</option></select></label>
+        <div class="action-group"><button id="startButton" class="button button-primary" type="button">マスキング開始</button><button id="stopButton" class="button button-danger" type="button" hidden>停止</button></div>
+      </div>
+      <div class="mode-help">
+        <p><strong>標準:</strong> 個人に直接ひも付く氏名・住所・連絡先等を中心に検出します。</p>
+        <p><strong>厳格:</strong> 電話・メール等をより保守的にマスクします。</p>
+      </div>
+    </section>
+
+    <section class="progress-panel" data-progress-wrap hidden aria-live="polite">
+      <div class="progress-copy" data-progress-text></div>
+      <div class="progress-track" aria-hidden="true"><div class="progress-bar" data-progress-bar></div></div>
+    </section>
+
+    <section class="panel" aria-labelledby="result-heading">
+      <div class="section-heading">
+        <div><span class="step">02</span><h2 id="result-heading">結果</h2></div>
+        <button id="copyButton" class="button button-quiet" type="button">結果をコピー</button>
+      </div>
+      <label class="sr-only" for="resultText">マスキング結果</label>
+      <textarea id="resultText" class="text-area result-area" readonly spellcheck="false" placeholder="処理結果がここに表示されます。"></textarea>
+      <div class="result-meta"><span data-summary>0件マスク / 0件要確認</span><span>マスク対象外の文字は原文からそのままコピーします。</span></div>
+      <p class="warning" data-warning hidden></p>
+    </section>
+
+    <footer><p>入力本文は保存しません。ページを更新すると消えます。</p></footer>
+  </main>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

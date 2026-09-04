@@ -1,0 +1,35 @@
+name: Nano Redactor static checks
+
+on:
+  pull_request:
+    paths:
+      - 'nano-redactor/**'
+      - 'index.html'
+      - 'README.md'
+      - '.github/workflows/nano-redactor-static.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests
+        run: node --test nano-redactor/tests/*.test.mjs
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in nano-redactor/js/*.js nano-redactor/sw.js; do
+            node --check "$file"
+          done
+      - name: No external runtime URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'https?://' nano-redactor/index.html nano-redactor/styles.css nano-redactor/js nano-redactor/sw.js nano-redactor/manifest.webmanifest; then
+            echo 'External runtime URL found.' >&2
+            exit 1
+          fi
