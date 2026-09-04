@@ -1,5 +1,6 @@
 import { NanoDetector, NanoError } from './ai.js';
 import { createChunks } from './chunker.js';
+import { extractMailParticipantContext, mailParticipantContextToSpans } from './mail-context.js';
 import { extractRuleCandidates, ruleCandidatesToSpans } from './rules.js';
 import { mergeSpans, resolveEntitySpans } from './spans.js';
 import { createMaskState, redactText } from './redactor.js';
@@ -36,7 +37,7 @@ function countWarnings(warnings) { return Array.isArray(warnings) ? warnings.len
 async function runMasking() {
   const source = ui.refs.input.value;
   if (!source.length) { ui.setWarning('マスクする文章を貼り付けてください。'); ui.refs.input.focus(); return; }
-  const mode = ui.refs.mode.value; const style = ui.refs.style.value; const chunks = createChunks(source); const maskState = createMaskState();
+  const mode = ui.refs.mode.value; const style = ui.refs.style.value; const chunks = createChunks(source); const maskState = createMaskState(); const mailContext = extractMailParticipantContext(source);
   let allSpans = []; const warnings = []; let aiAvailable = !['unsupported', 'unavailable'].includes(lastAvailability); let fallbackUsed = !aiAvailable;
   activeController = new AbortController(); const { signal } = activeController;
   ui.setBusy(true); ui.setWarning(''); ui.refs.output.value = source; ui.setSummary(0, 0); ui.setProgress(0, chunks.length);
@@ -48,10 +49,16 @@ async function runMasking() {
     for (let i = 0; i < chunks.length; i += 1) {
       if (signal.aborted) throw abortError();
       const chunk = chunks[i]; const chunkText = source.slice(chunk.start, chunk.end); const ruleCandidates = extractRuleCandidates(chunkText);
-      let chunkSpans = ruleCandidatesToSpans(ruleCandidates, chunk.start, { mode, aiAvailable });
+      let chunkSpans = [
+        ...mailParticipantContextToSpans(chunkText, chunk.start, mailContext),
+        ...ruleCandidatesToSpans(ruleCandidates, chunk.start, { mode, aiAvailable }),
+      ];
       if (aiAvailable) {
-        try { const result = await detector.detect(chunkText, ruleCandidates, mode, { signal }); const resolved = resolveEntitySpans(chunkText, result.entities, chunk.start); chunkSpans.push(...resolved.spans); warnings.push(...resolved.warnings); }
-        catch (error) { if (error?.code === 'PROMPT_ABORTED' || error?.name === 'AbortError') throw error; warnings.push({ code: error?.code || 'MODEL_UNAVAILABLE' }); chunkSpans = ruleCandidatesToSpans(ruleCandidates, chunk.start, { mode, aiAvailable: false }); fallbackUsed = true; }
+        try { const result = await detector.detect(chunkText, ruleCandidates, mode, { signal }); const resolved = resolveEntitySpans(chunkText, result.entities, chunk.start, { mode }); chunkSpans.push(...resolved.spans); warnings.push(...resolved.warnings); }
+        catch (error) { if (error?.code === 'PROMPT_ABORTED' || error?.name === 'AbortError') throw error; warnings.push({ code: error?.code || 'MODEL_UNAVAILABLE' }); chunkSpans = [
+          ...mailParticipantContextToSpans(chunkText, chunk.start, mailContext),
+          ...ruleCandidatesToSpans(ruleCandidates, chunk.start, { mode, aiAvailable: false }),
+        ]; fallbackUsed = true; }
       }
       const merged = mergeSpans([...allSpans, ...chunkSpans], source.length); allSpans = merged.spans; warnings.push(...merged.warnings);
       const preview = redactText(source, allSpans, { style, state: maskState }); ui.refs.output.value = preview.text;
