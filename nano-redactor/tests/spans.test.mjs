@@ -17,6 +17,16 @@ test('repeated entities resolve in source order when all occurrences are returne
   assert.deepEqual(result.spans.map(({ start, end }) => [start, end]), [[100,104],[105,109]]);
 });
 
+test('standard mode rejects generic publication dates mislabeled as OTHER', () => {
+  const result = resolveEntitySpans('出典（環境省、2012年3月）', [{ text:'2012年3月', type:'OTHER' }]);
+  assert.deepEqual(result.spans, []); assert.equal(result.warnings[0].code, 'MODEL_NON_PII_REJECTED');
+});
+
+test('strict mode may keep contextually detected date-like quasi-identifiers', () => {
+  const result = resolveEntitySpans('面談日は2026-09-02です。', [{ text:'2026-09-02', type:'OTHER' }], 0, { mode:'strict' });
+  assert.equal(result.spans.length, 1);
+});
+
 test('same-type containment keeps the wider exact detected unit', () => {
   const merged = mergeSpans([{ start:5,end:10,type:'ADDRESS',source:'rule' },{ start:0,end:15,type:'ADDRESS',source:'model' }], 20);
   assert.deepEqual(merged.spans.map(({ start, end }) => [start,end]), [[0,15]]); assert.equal(merged.warnings.length, 0);

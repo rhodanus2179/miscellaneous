@@ -4,6 +4,7 @@ export const ENTITY_TYPES = Object.freeze([
 ]);
 
 const ENTITY_TYPE_SET = new Set(ENTITY_TYPES);
+const GENERIC_DATE = /^(?:18|19|20|21)\d{2}(?:(?:年(?:\d{1,2}月(?:\d{1,2}日)?)?)|(?:[./-]\d{1,2}(?:[./-]\d{1,2})?))?$/u;
 
 function allOccurrences(text, needle) {
   const positions = [];
@@ -22,12 +23,26 @@ function safeEntity(entity) {
   return entity && typeof entity.text === 'string' && entity.text.length > 0 && ENTITY_TYPE_SET.has(entity.type);
 }
 
-export function resolveEntitySpans(chunkText, entities, chunkStart = 0) {
+function shouldRejectModelEntity(entity, mode) {
+  if (mode !== 'standard') return false;
+  return entity.type === 'OTHER' && GENERIC_DATE.test(entity.text.trim());
+}
+
+export function resolveEntitySpans(chunkText, entities, chunkStart = 0, { mode = 'standard' } = {}) {
   if (typeof chunkText !== 'string') throw new TypeError('chunkText must be a string');
-  const input = Array.isArray(entities) ? entities.filter(safeEntity) : [];
   const groups = new Map();
   const warnings = [];
   const spans = [];
+  const input = [];
+
+  for (const entity of Array.isArray(entities) ? entities : []) {
+    if (!safeEntity(entity)) continue;
+    if (shouldRejectModelEntity(entity, mode)) {
+      warnings.push({ code: 'MODEL_NON_PII_REJECTED', type: entity.type });
+      continue;
+    }
+    input.push(entity);
+  }
 
   for (const entity of input) {
     const list = groups.get(entity.text) || [];
